@@ -66,6 +66,16 @@ func run() error {
 	)
 	defer stop()
 
+	maintenanceDone := make(chan struct{})
+	go func() {
+		defer close(maintenanceDone)
+		service.RunMaintenance(ctx)
+	}()
+	defer func() {
+		stop()
+		<-maintenanceDone
+	}()
+
 	result := make(chan error, 1)
 	go func() {
 		log.Printf("[Tank] coordinator listening on %s", cfg.CoordinatorAddr)

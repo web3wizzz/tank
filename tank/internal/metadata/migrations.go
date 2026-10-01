@@ -18,19 +18,37 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	if version > 1 {
-		return fmt.Errorf("database schema %d is newer than supported schema 1", version)
+	if version > 2 {
+		return fmt.Errorf("database schema %d is newer than supported schema 2", version)
 	}
 
 	if version == 0 {
-		_, err := tx.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, `
 			CREATE TABLE manifests (
 				file_id TEXT PRIMARY KEY,
 				body TEXT NOT NULL
 			);
-			PRAGMA user_version = 1;
-		`)
-		if err != nil {
+		`); err != nil {
+			return err
+		}
+	}
+
+	if version < 2 {
+		if _, err := tx.ExecContext(ctx, `
+			CREATE TABLE repair_jobs (
+				file_id TEXT PRIMARY KEY,
+				attempts INTEGER NOT NULL DEFAULT 0,
+				next_attempt INTEGER NOT NULL,
+				lease_until INTEGER NOT NULL DEFAULT 0,
+				lease_token TEXT NOT NULL DEFAULT '',
+				last_error TEXT NOT NULL DEFAULT ''
+			);
+
+			CREATE INDEX repair_jobs_due
+			ON repair_jobs(next_attempt, lease_until);
+
+			PRAGMA user_version = 2;
+		`); err != nil {
 			return err
 		}
 	}
