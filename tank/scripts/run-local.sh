@@ -19,7 +19,7 @@ set +a
 export TANK_COORDINATOR_ADDR="127.0.0.1:8080"
 export TANK_DATABASE_PATH="data/local-demo/tank.sqlite"
 export TANK_MAX_SEGMENT_BYTES="4194304"
-export TANK_NODES="http://127.0.0.1:9101,http://127.0.0.1:9102,http://127.0.0.1:9103"
+export TANK_NODES="http://127.0.0.1:9101,http://127.0.0.1:9102,http://127.0.0.1:9103,http://127.0.0.1:9104"
 
 go build -o bin/tank-node ./cmd/tank-node
 go build -o bin/coordinator ./cmd/coordinator
@@ -39,17 +39,18 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-for index in 1 2 3; do
+for index in 1 2 3 4; do
   TANK_NODE_ADDR="127.0.0.1:$((9100 + index))" \
   TANK_NODE_DATA_DIR="data/local-demo/node${index}" \
     ./bin/tank-node > "data/local-demo/node${index}.log" 2>&1 &
 
   pids+=("$!")
+  printf '%s\n' "${pids[-1]}" > "data/local-demo/node${index}.pid"
 done
 
 sleep 1
 
-for index in 1 2 3; do
+for index in 1 2 3 4; do
   if ! kill -0 "${pids[$((index - 1))]}" 2>/dev/null; then
     cat "data/local-demo/node${index}.log"
     exit 1
