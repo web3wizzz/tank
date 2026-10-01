@@ -23,7 +23,7 @@ func Encode(data []byte) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	shards, err := enc.Split(data)
+	shards, err := enc.Split(bytes.Clone(data))
 	if err != nil {
 		return nil, err
 	}
