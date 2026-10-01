@@ -33,7 +33,7 @@ func NewService(
 	nodes []*node.Client,
 	segmentSize int,
 ) (*Service, error) {
-	if store == nil || len(nodes) != 3 {
+	if store == nil || len(nodes) < 3 {
 		return nil, fmt.Errorf("metadata store and three nodes are required")
 	}
 	if segmentSize < 1 || segmentSize > encoding.MaxBytes {
@@ -53,7 +53,7 @@ func NewService(
 
 	return &Service{
 		store:       store,
-		nodes:       append([]*node.Client(nil), nodes...),
+		nodes:       append([]*node.Client(nil), nodes[:3]...),
 		byURL:       byURL,
 		segmentSize: segmentSize,
 	}, nil

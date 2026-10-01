@@ -2,11 +2,9 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-
 mkdir -p bin data/local-demo
 umask 077
 
-# Keep the same local credentials across restarts.
 if [[ ! -f .env.tank-local ]]; then
   {
     printf 'TANK_NODE_TOKEN=%s\n' "$(openssl rand -hex 32)"
@@ -25,20 +23,6 @@ export TANK_NODES="http://127.0.0.1:9101,http://127.0.0.1:9102,http://127.0.0.1:
 
 go build -o bin/tank-node ./cmd/tank-node
 go build -o bin/coordinator ./cmd/coordinator
-
-# Check that another process is not already using these ports.
-python3 - <<'PY'
-import socket
-
-for port in (8080, 9101, 9102, 9103):
-    with socket.socket() as sock:
-        try:
-            sock.bind(("127.0.0.1", port))
-        except OSError:
-            raise SystemExit(
-                f"Port {port} is already in use. Stop its previous process first."
-            )
-PY
 
 pids=()
 
@@ -63,28 +47,16 @@ for index in 1 2 3; do
   pids+=("$!")
 done
 
+sleep 1
+
 for index in 1 2 3; do
-  ready=false
-
-  for attempt in {1..50}; do
-    if ! kill -0 "${pids[$((index - 1))]}" 2>/dev/null; then
-      cat "data/local-demo/node${index}.log"
-      exit 1
-    fi
-
-    if curl --silent --fail \
-      "http://127.0.0.1:$((9100 + index))/health" >/dev/null; then
-      ready=true
-      break
-    fi
-
-    sleep 0.1
-  done
-
-  if [[ "$ready" != true ]]; then
-    printf 'Node %s failed to become ready.\n' "$index"
+  if ! kill -0 "${pids[$((index - 1))]}" 2>/dev/null; then
+    cat "data/local-demo/node${index}.log"
     exit 1
   fi
+
+  curl --fail --silent --show-error \
+    "http://127.0.0.1:$((9100 + index))/health"
 done
 
 ./bin/coordinator &

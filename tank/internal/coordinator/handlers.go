@@ -117,5 +117,7 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		json.NewEncoder(w).Encode(ids)
 	}))
 
+	mux.HandleFunc("POST /repair/{id}", auth(service.handleRepair))
+
 	return mux, nil
 }
