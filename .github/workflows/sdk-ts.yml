@@ -1,0 +1,42 @@
+name: TypeScript SDK CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    name: TypeScript SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: tank/sdk-ts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tank/sdk-ts/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check TypeScript
+        run: npm run check
+
+      - name: Build and test
+        run: npm test

@@ -164,6 +164,27 @@ The worker discovers existing manifests as well as newly tanked files.
 
 The current registration client is restricted to local Anvil, chain ID **31337**, and an unlocked development account. Public testnet deployment and production signing are planned.
 
+## Go SDK
+
+Integrate Tank directly into Go applications with
+`tank.local/tank/pkg/tank`.
+
+The SDK supports storage, verified retrieval, listing, health checks,
+and registration status.
+
+Read the [Go SDK guide](tank/docs/go-sdk.md) or explore the
+[working example](tank/examples/go-sdk/main.go).
+
+## TypeScript SDK
+
+Use Tank from Node.js applications with the repository-local TypeScript SDK.
+
+It supports storage, verified retrieval, listing, health checks,
+and registration status.
+
+Read the [TypeScript SDK guide](tank/sdk-ts/README.md) or run the
+[local demo](tank/sdk-ts/examples/local-demo.mjs).
+
 ## Developer guide
 
 ### HTTP API
@@ -283,7 +304,7 @@ From `tank/contracts/`:
 
 | Working and verified locally | Planned |
 | --- | --- |
-| Authenticated storage API and Go CLI | Go and TypeScript SDKs |
+| Authenticated API, Go CLI, and Go/TypeScript SDKs | SDK publishing and release tooling |
 | File recovery after node failure | Browser interface |
 | Manual and queued background repair | Independent operator deployments |
 | Automatic registration and RPC outage recovery | Public testnet registration and secure signing |
