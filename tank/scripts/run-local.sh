@@ -24,6 +24,16 @@ export TANK_NODES="http://127.0.0.1:9101,http://127.0.0.1:9102,http://127.0.0.1:
 go build -o bin/tank-node ./cmd/tank-node
 go build -o bin/coordinator ./cmd/coordinator
 
+registration_enabled=false
+if [[ -n "${TANK_CHAIN_RPC:-}${TANK_REGISTRY_ADDR:-}${TANK_REGISTRANT:-}" ]]; then
+  if [[ -z "${TANK_CHAIN_RPC:-}" || -z "${TANK_REGISTRY_ADDR:-}" || -z "${TANK_REGISTRANT:-}" ]]; then
+    echo "Set TANK_CHAIN_RPC, TANK_REGISTRY_ADDR, and TANK_REGISTRANT together." >&2
+    exit 1
+  fi
+  go build -o bin/tank-registration-worker ./cmd/tank-registration-worker
+  registration_enabled=true
+fi
+
 pids=()
 
 cleanup() {
@@ -63,4 +73,20 @@ done
 ./bin/coordinator &
 pids+=("$!")
 
-wait "${pids[-1]}"
+if [[ "$registration_enabled" == true ]]; then
+  ./bin/tank-registration-worker > data/local-demo/registration-worker.log 2>&1 &
+  pids+=("$!")
+  echo "Registration worker started; log: data/local-demo/registration-worker.log"
+fi
+
+# EXIT cleanup stops the remaining processes when any managed process exits.
+set +e
+wait -n "${pids[@]}"
+status=$?
+set -e
+
+echo "A managed process exited; stopping the local stack." >&2
+if [[ "$status" -eq 0 ]]; then
+  status=1
+fi
+exit "$status"
