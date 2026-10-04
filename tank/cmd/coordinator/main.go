@@ -46,7 +46,14 @@ func run() error {
 		return err
 	}
 
-	handler, err := coordinator.NewHandler(service, os.Getenv("TANK_API_TOKEN"))
+	handler, err := coordinator.NewHandlerWithRegistration(
+		service,
+		store,
+		os.Getenv("TANK_API_TOKEN"),
+		os.Getenv("TANK_CHAIN_RPC"),
+		os.Getenv("TANK_REGISTRY_ADDR"),
+		os.Getenv("TANK_REGISTRANT"),
+	)
 	if err != nil {
 		return err
 	}
