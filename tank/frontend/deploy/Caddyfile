@@ -1,0 +1,4 @@
+{$TANK_PUBLIC_HOST:http://localhost:8090} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3000
+}

@@ -30,3 +30,37 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local credentials and environment files
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# Dependencies and generated builds
+node_modules/
+.next/
+dist/
+bin/
+*.tsbuildinfo
+/tank/frontend/out/
+/tank/contracts/cache/
+/tank/contracts/out/
+/tank/contracts/broadcast/
+
+# Local storage, chain state, and process files
+/tank/data/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.pid
+anvil-state*.json
+anvil-snapshot*.json
+
+# Temporary frontend backups
+*.before-cyan
+*.before-sdk
+/tank/frontend-before-setup-*/
