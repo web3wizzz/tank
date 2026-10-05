@@ -1,15 +1,14 @@
 package coordinator
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
-	"strings"
+	"net/url"
 
 	"tank.local/tank/internal/integrity"
 	"tank.local/tank/internal/metadata"
@@ -20,30 +19,35 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		return nil, fmt.Errorf("service and API token of at least 32 characters required")
 	}
 
-	expectedToken := sha256.Sum256([]byte(token))
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok\n"))
 	})
 
-	auth := func(next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			header := r.Header.Get("Authorization")
-			if !strings.HasPrefix(header, "Bearer ") {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			actual := sha256.Sum256([]byte(strings.TrimPrefix(header, "Bearer ")))
-			if subtle.ConstantTimeCompare(actual[:], expectedToken[:]) != 1 {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			next(w, r)
-		}
-	}
+	auth := newAuthorizer(service.store, token).middleware
 
 	mux.HandleFunc("POST /tank", auth(func(w http.ResponseWriter, r *http.Request) {
+
+		// Optional percent-encoded filename. File bytes remain the raw body.
+		var filename string
+		if encoded := r.Header.Get("X-Tank-Filename"); encoded != "" {
+			if len(encoded) > 1024 {
+				http.Error(w, "filename too long", http.StatusBadRequest)
+				return
+			}
+			decoded, err := url.PathUnescape(encoded)
+			if err != nil {
+				http.Error(w, "invalid filename encoding", http.StatusBadRequest)
+				return
+			}
+			filename, err = metadata.NormalizeFilename(decoded)
+			if err != nil {
+				http.Error(w, "invalid filename", http.StatusBadRequest)
+				return
+			}
+		}
+
 		// The request body is the raw file, not multipart form data.
 		r.Body = http.MaxBytesReader(w, r.Body, MaxFileBytes)
 		data, err := io.ReadAll(r.Body)
@@ -66,6 +70,26 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 			log.Printf("[Tank] tank failed: %v", err)
 			http.Error(w, "could not store file", http.StatusServiceUnavailable)
 			return
+		}
+
+		identity, ok := identityFromRequest(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		if !identity.Admin {
+			if err := service.store.GrantFileAccess(
+				r.Context(), identity.PrincipalID, m.FileID, filename,
+			); err != nil {
+				http.Error(w, "could not save file permission", http.StatusServiceUnavailable)
+				return
+			}
+		} else if filename != "" {
+			if err := service.store.SaveFilename(r.Context(), m.FileID, filename); err != nil {
+				http.Error(w, "could not save filename", http.StatusServiceUnavailable)
+				return
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -92,7 +116,18 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		}
 
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", `attachment; filename="tank-file"`)
+
+		filename, err := requestFilename(r, service.store, id)
+		if err != nil {
+			http.Error(w, "filename unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if filename == "" {
+			filename = id + ".bin"
+		}
+		w.Header().Set("Content-Disposition",
+			mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+
 		w.Header().Set("Cache-Control", "no-store")
 		w.Write(data)
 	}))
@@ -107,7 +142,20 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 			}
 		}
 
-		ids, err := service.List(r.Context(), after)
+		var ids []string
+		var err error
+		identity, ok := identityFromRequest(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if identity.Admin {
+			ids, err = service.List(r.Context(), after)
+		} else {
+			ids, err = service.store.ListAccessibleFiles(
+				r.Context(), identity.PrincipalID, after,
+			)
+		}
 		if err != nil {
 			http.Error(w, "could not list files", http.StatusInternalServerError)
 			return
@@ -116,6 +164,8 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(ids)
 	}))
+
+	mux.HandleFunc("GET /files/{id}/info", auth(service.handleFileInfo))
 
 	mux.HandleFunc("POST /repair/{id}", auth(service.handleRepair))
 

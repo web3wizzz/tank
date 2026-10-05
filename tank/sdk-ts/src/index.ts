@@ -7,6 +7,8 @@ export {
 
 export type {
   TankConfig,
+  TankOptions,
+  FileInfo,
   RequestOptions,
   Shard,
   Segment,

@@ -3,6 +3,8 @@ import type {
   Registration,
   RequestOptions,
   TankConfig,
+  TankOptions,
+  FileInfo,
 } from "./types.js";
 
 export const MAX_FILE_BYTES = 16 * 1024 * 1024;
@@ -27,6 +29,36 @@ export class IntegrityError extends Error {
     super(message);
     this.name = "IntegrityError";
   }
+}
+
+
+function normalizeFilename(value: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError("Filename must be a string");
+  }
+
+  for (const character of value) {
+    const point = character.codePointAt(0)!;
+    if (
+      point < 32 || (point >= 127 && point <= 159) ||
+      (point >= 0xd800 && point <= 0xdfff) ||
+      (point >= 0x202a && point <= 0x202e) ||
+      (point >= 0x2066 && point <= 0x2069)
+    ) {
+      throw new TypeError("Invalid filename");
+    }
+  }
+
+  const name = value.trim().replaceAll("\\", "/")
+    .replace(/\/+$/, "").split("/").at(-1) ?? "";
+
+  if (
+    !name || name === "." || name === ".." ||
+    new TextEncoder().encode(name).byteLength > 255
+  ) {
+    throw new TypeError("Invalid filename");
+  }
+  return name;
 }
 
 function requireID(id: string): void {
@@ -229,6 +261,7 @@ export class Tank {
     options: RequestOptions,
     limit: number,
     body?: ArrayBuffer,
+    filename?: string,
   ): Promise<Uint8Array> {
     if (authenticated && !this.token) {
       throw new Error("An API token is required");
@@ -244,6 +277,10 @@ export class Tank {
     const headers = new Headers();
     if (authenticated) {
       headers.set("Authorization", `Bearer ${this.token}`);
+    }
+
+    if (filename !== undefined) {
+      headers.set("X-Tank-Filename", encodeURIComponent(filename));
     }
 
     const init: RequestInit = {
@@ -278,7 +315,7 @@ export class Tank {
 
   async tank(
     data: Uint8Array,
-    options: RequestOptions = {},
+    options: TankOptions = {},
   ): Promise<Manifest> {
     if (!(data instanceof Uint8Array)) {
       throw new TypeError("File data must be a Uint8Array");
@@ -289,10 +326,14 @@ export class Tank {
 
     options.signal?.throwIfAborted();
 
+    const filename = options.filename === undefined
+      ? undefined
+      : normalizeFilename(options.filename);
+
     const payload = new Uint8Array(data);
     const id = await digest(payload);
     const response = await this.request(
-      "POST", "/tank", true, options, MAX_JSON_BYTES, payload.buffer,
+      "POST", "/tank", true, options, MAX_JSON_BYTES, payload.buffer, filename,
     );
 
     return parseManifest(parseJSON(response), id, payload.byteLength);
@@ -345,6 +386,33 @@ export class Tank {
     }
 
     return value as string[];
+  }
+
+
+  async fileInfo(
+    id: string,
+    options: RequestOptions = {},
+  ): Promise<FileInfo> {
+    requireID(id);
+
+    const response = await this.request(
+      "GET", `/files/${id}/info`, true, options, 4096,
+    );
+    const info = record(parseJSON(response));
+    const filename = typeof info.filename === "string"
+      ? normalizeFilename(info.filename)
+      : "";
+
+    if (
+      info.file_id !== id || !filename || filename !== info.filename ||
+      typeof info.size !== "number" ||
+      !Number.isSafeInteger(info.size) ||
+      info.size < 1 || info.size > MAX_FILE_BYTES
+    ) {
+      throw new TypeError("API returned invalid file information");
+    }
+
+    return { file_id: id, filename, size: info.size };
   }
 
   async registrationStatus(

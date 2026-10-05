@@ -98,3 +98,32 @@ anvil-snapshot*.json
 *.before-cyan
 *.before-sdk
 /tank/frontend-before-setup-*/
+
+# Tank secrets and private runtime data
+.env
+.env.*
+/tank/data/
+*.pem
+*.key
+
+# Dependencies and generated files
+node_modules/
+.next/
+dist/
+bin/
+*.tsbuildinfo
+/tank/frontend/out/
+/tank/contracts/cache/
+/tank/contracts/out/
+/tank/contracts/broadcast/
+
+# Runtime files and temporary backups
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.pid
+*.before-cyan
+*.before-sdk
+/tank/frontend-before-setup-*/

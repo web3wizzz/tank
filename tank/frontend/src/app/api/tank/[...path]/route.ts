@@ -81,8 +81,8 @@ function failure(error: unknown) {
   if (
     error &&
     typeof error === "object" &&
-    "status" in error &&
-    error.status === 404
+    "statusCode" in error &&
+    error.statusCode === 404
   ) {
     return json({ error: "File not found." }, 404);
   }
@@ -175,12 +175,24 @@ export async function GET(request: Request, context: Context) {
 
     if (path.length === 2 && path[0] === "files") {
       const id = validateID(path[1]);
-      const bytes = await client().retrieve(id);
+      const sdk = client();
+      const info = await sdk.fileInfo(id, { signal: request.signal });
+      const bytes = await sdk.retrieve(id, { signal: request.signal });
+
+      if (bytes.byteLength !== info.size) {
+        throw new IntegrityError("File size differs from metadata");
+      }
+
+      const encodedName = encodeURIComponent(info.filename)
+        .replace(/['()*]/g, (character) =>
+          "%" + character.charCodeAt(0).toString(16).toUpperCase());
 
       return new Response(new Uint8Array(bytes).buffer, {
         headers: {
           "Content-Type": "application/octet-stream",
-          "Content-Disposition": `attachment; filename="${id}.bin"`,
+          "Content-Disposition":
+            `attachment; filename="${id}.bin"; filename*=UTF-8''${encodedName}`,
+          "X-Tank-Filename": encodedName,
           "Content-Length": String(bytes.byteLength),
           "Cache-Control": "no-store",
           "X-Content-Type-Options": "nosniff",
@@ -204,7 +216,24 @@ export async function POST(request: Request, context: Context) {
     }
 
     const bytes = await readFile(request);
-    const manifest = await client().tank(bytes);
+    const encodedName = request.headers.get("X-Tank-Filename");
+    let filename: string | undefined;
+
+    if (encodedName !== null) {
+      if (encodedName.length > 1024) {
+        throw new RequestError(400, "Filename too long.");
+      }
+      try {
+        filename = decodeURIComponent(encodedName);
+      } catch {
+        throw new RequestError(400, "Invalid filename encoding.");
+      }
+    }
+
+    const manifest = await client().tank(bytes, {
+      signal: request.signal,
+      ...(filename === undefined ? {} : { filename }),
+    });
 
     return json(
       { file_id: manifest.file_id, size: manifest.size },

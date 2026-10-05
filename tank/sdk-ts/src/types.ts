@@ -44,3 +44,13 @@ export interface Registration {
   attempts: number;
   last_error?: string;
 }
+
+export interface TankOptions extends RequestOptions {
+  filename?: string;
+}
+
+export interface FileInfo {
+  file_id: string;
+  filename: string;
+  size: number;
+}

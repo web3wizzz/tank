@@ -1,10 +1,9 @@
 package coordinator
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"tank.local/tank/internal/integrity"
@@ -21,8 +20,10 @@ func NewHandlerWithRegistration(
 	if err != nil {
 		return nil, err
 	}
+	if store != service.store {
+		return nil, fmt.Errorf("registration and storage must use the same metadata store")
+	}
 
-	// Storage can also run without chain configuration.
 	if rpcURL == "" && contract == "" && registrant == "" {
 		return base, nil
 	}
@@ -35,19 +36,23 @@ func NewHandlerWithRegistration(
 	if err != nil {
 		return nil, err
 	}
-	target := worker.Target()
-	expectedAuth := sha256.Sum256([]byte("Bearer " + token))
 
+	return newRegistrationHandler(
+		base, service, store, token, worker.Target(),
+	), nil
+}
+
+func newRegistrationHandler(
+	base http.Handler,
+	service *Service,
+	store *metadata.Store,
+	token, target string,
+) http.Handler {
+	auth := newAuthorizer(service.store, token).middleware
 	mux := http.NewServeMux()
 	mux.Handle("/", base)
-	mux.HandleFunc("GET /registrations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		actualAuth := sha256.Sum256([]byte(r.Header.Get("Authorization")))
-		if subtle.ConstantTimeCompare(actualAuth[:], expectedAuth[:]) != 1 {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
 
+	mux.HandleFunc("GET /registrations/{id}", auth(func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		hash, err := integrity.ParseHash(id)
 		if err != nil || hash.String() != id {
@@ -88,8 +93,15 @@ func NewHandlerWithRegistration(
 			LastError:       status.LastError,
 		}
 
+		identity, _ := identityFromRequest(r)
+		if !identity.Admin {
+			// Worker errors can contain internal infrastructure details.
+			response.LastError = ""
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
-	})
-	return mux, nil
+	}))
+
+	return mux
 }
