@@ -42,7 +42,7 @@ const questions = [
   {
     question: "Are uploads encrypted?",
     answer:
-      "Tank does not currently provide built-in file encryption. Encrypt sensitive files before uploading them.",
+      "The browser workspace encrypts file contents and the original filename before uploading. Save its recovery key privately: Tank cannot recover a lost key. SDK and CLI uploads require you to encrypt files yourself.",
   },
   {
     question: "How do developers integrate Tank?",
@@ -138,7 +138,7 @@ export default function Home() {
       </section>
 
       <section className="metrics" aria-label="Local prototype specifications">
-        <div><strong>16 MiB</strong><span>Maximum file size</span></div>
+        <div><strong>16 MiB</strong><span>Default storage upload limit</span></div>
         <div><strong>4 + 2</strong><span>Erasure coding</span></div>
         <div><strong>2 SDKs</strong><span>Go and TypeScript</span></div>
         <div><strong>4 nodes</strong><span>Local demo configuration</span></div>

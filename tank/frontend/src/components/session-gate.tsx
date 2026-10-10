@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 
 export default function SessionGate({ children }: { children: ReactNode }) {
+  const focusAfterTransition = useRef(false);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,6 +43,8 @@ export default function SessionGate({ children }: { children: ReactNode }) {
     }
 
     const expired = () => {
+      controller.abort();
+      focusAfterTransition.current = true;
       setSignedIn(false);
       setToken("");
       setError("Your session is no longer valid. Sign in again.");
@@ -55,6 +58,20 @@ export default function SessionGate({ children }: { children: ReactNode }) {
       window.removeEventListener("tank:session-expired", expired);
     };
   }, []);
+
+  useEffect(() => {
+    if (!focusAfterTransition.current || busy || signedIn === null) return;
+    focusAfterTransition.current = false;
+    document.getElementById(signedIn ? "workspace-title" : "access-credential")?.focus();
+  }, [signedIn, busy]);
+
+  function connectionError(error: unknown, fallback: string) {
+    if (error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name)) {
+      return "The request timed out. Try again.";
+    }
+    if (error instanceof TypeError) return "Could not connect. Check that local services are running.";
+    return error instanceof Error ? error.message : fallback;
+  }
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,14 +89,15 @@ export default function SessionGate({ children }: { children: ReactNode }) {
         body: JSON.stringify({ token: token.trim() }),
         signal: AbortSignal.timeout(15_000),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(result.error ?? "Sign-in failed.");
+        throw new Error(typeof result?.error === "string" ? result.error : "Sign-in failed. The service is unavailable; try again.");
       }
       setToken("");
+      focusAfterTransition.current = true;
       setSignedIn(true);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Sign-in failed.");
+      setError(connectionError(error, "Sign-in failed."));
     } finally {
       setBusy(false);
     }
@@ -97,10 +115,11 @@ export default function SessionGate({ children }: { children: ReactNode }) {
       });
       if (!response.ok) throw new Error("Sign-out failed.");
       window.dispatchEvent(new Event("tank:session-ended"));
+      focusAfterTransition.current = true;
       setSignedIn(false);
       setToken("");
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Sign-out failed.");
+      setError(connectionError(error, "Sign-out failed."));
     } finally {
       setBusy(false);
     }

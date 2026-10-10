@@ -162,6 +162,20 @@ try {
   });
   assert.equal(crossSite.status(), 403, "Cross-site requests must be rejected.");
   await openWorkspace(page);
+  for (const width of [320, 375, 768]) {
+    await page.setViewportSize({ width, height: 640 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Signed-out page overflows at ${width}px.`);
+  }
+  const loginURL = `${origin}/api/auth/session`;
+  const unavailableLogin = async (route) => {
+    if (route.request().method() === "POST") await route.fulfill({ status: 502, contentType: "text/html", body: "<h1>Unavailable</h1>" });
+    else await route.fallback();
+  };
+  await page.route(loginURL, unavailableLogin);
+  await fillCredential(page, "tank_u_" + "a".repeat(64));
+  await page.getByLabel("Access credential").press("Enter");
+  await page.getByRole("alert").filter({ hasText: "The service is unavailable; try again." }).waitFor();
+  await page.unroute(loginURL, unavailableLogin);
   await fillCredential(page, token);
   const signIn = page.waitForResponse((response) => response.url().endsWith("/api/auth/session") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Open my workspace" }).click();
@@ -178,6 +192,13 @@ try {
   const cookie = (await context.cookies()).find((value) => value.name === "tank_session");
   assert.ok(cookie?.httpOnly && cookie.sameSite === "Lax");
   if (origin.startsWith("https:")) assert.ok(cookie.secure, "HTTPS sessions must use secure cookies.");
+  await page.waitForFunction(() => document.activeElement?.id === "workspace-title");
+  for (const width of [320, 375, 768]) {
+    await page.setViewportSize({ width, height: 640 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `Workspace overflows at ${width}px.`);
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  console.log("PASS: mobile layouts, keyboard sign-in errors, and workspace focus.");
   console.log("PASS: exact origin sign-in and session cookie; unapproved/cross-site origins rejected.");
   if (process.env.TANK_E2E_MAX_FILE_BYTES) {
     const maximum = Number(process.env.TANK_E2E_MAX_FILE_BYTES);
@@ -189,7 +210,10 @@ try {
       return response.status;
     }, maximum);
     assert.equal(oversized, 413, "Frontend must enforce the configured lower upload limit.");
-    console.log("PASS: configured frontend upload-size limit rejects oversized bodies.");
+    await page.getByLabel("Choose a file to tank").setInputFiles({ name: "too-large.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(maximum) });
+    await page.getByRole("alert").filter({ hasText: "after encryption overhead" }).waitFor();
+    assert.ok(await page.getByRole("button", { name: "Encrypt file", exact: true }).isDisabled());
+    console.log("PASS: configured frontend upload-size limit rejects oversized bodies and guides file selection.");
   }
 
   // A valid one-page PDF, including Unicode in the original filename.
@@ -225,6 +249,11 @@ try {
   await page.getByRole("checkbox", { name: "I saved the recovery key in a private place." }).check();
   await page.getByRole("button", { name: "Tank encrypted file", exact: true }).click();
   await page.getByText("Encrypted file tanked. Keep its recovery key to retrieve it later.", { exact: true }).waitFor();
+  assert.equal(await page.getByLabel("Choose a file to tank").inputValue(), "");
+  await page.getByLabel("Choose a file to tank").setInputFiles({ name: filename, mimeType: "application/pdf", buffer: original });
+  assert.ok(await page.getByRole("button", { name: "Encrypt file", exact: true }).isEnabled());
+  await page.getByLabel("Choose a file to tank").setInputFiles([]);
+  console.log("PASS: the same file can be selected again after a successful upload.");
   assert.ok(uploaded?.bytes, "The browser must upload ciphertext.");
   assert.equal(createHash("sha256").update(uploaded.bytes).digest("hex"), keyData.file_id);
   assert.equal(uploaded.headers["x-tank-filename"], `${keyData.file_id}.tankenc`);
@@ -347,7 +376,8 @@ try {
     await page.getByLabel("Access credential").waitFor();
   }
   assert.ok(!(await context.cookies()).some((value) => value.name === "tank_session"));
-  console.log("PASS: sign-out clears the session.");
+  await page.waitForFunction(() => document.activeElement?.id === "access-credential");
+  console.log("PASS: sign-out clears the session and restores credential focus.");
   if (process.env.TANK_E2E_ACCESS_TOOL) {
     await fillCredential(page, token);
     await page.getByRole("button", { name: "Open my workspace" }).click();
@@ -357,6 +387,7 @@ try {
     ]);
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
     await page.getByLabel("Access credential").waitFor();
+    await page.waitForFunction(() => document.activeElement?.id === "access-credential");
     const revoked = page.waitForResponse((response) => response.url().endsWith("/api/auth/session") && response.request().method() === "POST");
     await fillCredential(page, token);
     await page.getByRole("button", { name: "Open my workspace" }).click();

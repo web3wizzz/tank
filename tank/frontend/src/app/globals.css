@@ -216,6 +216,8 @@ h2 { margin-top: 12px; font-size: clamp(28px, 3.5vw, 38px); line-height: 1.15; l
 }
 @media (max-width: 420px) {
   .site-shell { padding: 0 16px; }
+  .navigation { gap: 12px; flex-wrap: wrap; padding-block: 14px; }
+  .navigation nav { flex-wrap: wrap; gap: 12px; }
   .hero h1 { font-size: 34px; }
   .hero-actions { flex-direction: column; }
   .metrics { grid-template-columns: repeat(2, 1fr); gap: 24px 0; }
@@ -288,3 +290,5 @@ h2 { margin-top: 12px; font-size: clamp(28px, 3.5vw, 38px); line-height: 1.15; l
 .encryption-controls label { font-size: 13px; line-height: 1.6; }
 .encryption-controls input[type="checkbox"] { accent-color: #22d3ee; }
 .encryption-controls input[type="file"] { width: 100%; max-width: 100%; font-size: 12px; }
+
+.workspace-auth-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px 0; }

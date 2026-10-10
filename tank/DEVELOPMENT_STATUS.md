@@ -49,7 +49,7 @@ spending, or destructive changes to existing local data are authorized.
 - Validation: 17 frontend tests, lint/build, full isolated integration, diff checks.
 - Pushed to origin/main. Tank CI and TypeScript SDK CI passed.
 
-## Current milestone: resource limits and quotas
+## Completed milestone: resource limits and quotas
 
 - Validated configuration for upload size, headers, request deadlines, authenticated
   rate budgets, request concurrency, and accepted TCP connections.
@@ -62,7 +62,7 @@ spending, or destructive changes to existing local data are authorized.
   19 tests/lint/build, and isolated browser integration. A stalled registration
   regression verifies the configured deadline and admission release.
 - Security review found no confirmed quota race; authenticated governor buckets
-  persist for administratively provisioned users. Publication/Actions pending.
+  persist for administratively provisioned users. Published as `aaff72f`; Go and SDK Actions passed.
 - Independent review findings retained for upcoming frontend/docs/CI milestones:
   mobile overflow, stale FAQ, same-file reselection, login error/focus handling,
   contract CI, and broader SDK/build coverage.
@@ -88,3 +88,13 @@ spending, or destructive changes to existing local data are authorized.
 
 Finish and publish verified resource bounds and quota accounting, inspect Actions,
 then fix the reviewed frontend accessibility/responsiveness/error-handling issues.
+
+## Completed milestone: frontend usability
+
+- Fixed 320px navigation overflow, repeated file selection, stale encryption FAQ,
+  robust non-JSON sign-in errors, focus after sign-in/logout/expiry, and upload
+  guidance using the configured encrypted-file size bound.
+- Frontend 19 tests, lint, production build, and isolated integration passed.
+  Browser checks cover 320/375/768px signed-in/out layouts, keyboard submission,
+  HTML gateway failures, repeat selection, and focus restoration.
+- Publication/Actions pending. Next: SDK/security/contributor documentation.

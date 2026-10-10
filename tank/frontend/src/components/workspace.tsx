@@ -104,6 +104,8 @@ export default function Workspace() {
   const [fileID, setFileID] = useState("");
   const [ids, setIDs] = useState<string[]>([]);
   const [nextAfter, setNextAfter] = useState<string | null>(null);
+  const [maxUploadBytes, setMaxUploadBytes] = useState(MAX_BYTES);
+  const maxPlainBytes = Math.max(0, maxUploadBytes - (MAX_BYTES - MAX_PLAIN_BYTES));
   const [connected, setConnected] = useState<boolean | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -119,7 +121,8 @@ export default function Workspace() {
 
     async function connect() {
       try {
-        await workspaceAPI("health", { signal: controller.signal });
+        const health = await (await workspaceAPI("health", { signal: controller.signal })).json();
+        updateUploadLimit(health.max_file_bytes);
         const response = await workspaceAPI("files", { signal: controller.signal });
         const result = await response.json();
 
@@ -151,6 +154,13 @@ export default function Workspace() {
     return api(path, { ...init, signal: init.signal ? AbortSignal.any([signal, init.signal]) : signal });
   }
 
+  function updateUploadLimit(value: unknown) {
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > MAX_BYTES) {
+      throw new Error("Storage returned an invalid upload limit.");
+    }
+    setMaxUploadBytes(value);
+  }
+
   function chooseFile(selected: File | null) {
     setError("");
     setMessage("");
@@ -160,8 +170,8 @@ export default function Workspace() {
     setKeySaved(false);
 
     if (!selected) return;
-    if (selected.size < 1 || selected.size > MAX_PLAIN_BYTES) {
-      setError("Choose a file between 1 byte and 16 MiB minus 4.1 KiB for encryption overhead.");
+    if (selected.size < 1 || selected.size > maxPlainBytes) {
+      setError(maxPlainBytes ? `Choose a file between 1 and ${maxPlainBytes.toLocaleString()} bytes after encryption overhead.` : "The configured upload limit is too small for encrypted files. Contact your administrator.");
       return;
     }
 
@@ -187,7 +197,8 @@ export default function Workspace() {
   async function refresh() {
     await run("refresh", async () => {
       try {
-        await workspaceAPI("health");
+        const health = await (await workspaceAPI("health")).json();
+        updateUploadLimit(health.max_file_bytes);
         const response = await workspaceAPI("files");
         const result = await response.json();
         setIDs(result.file_ids);
@@ -238,6 +249,7 @@ export default function Workspace() {
 
   async function tankFile() {
     if (!file) return;
+    if (file.size > maxPlainBytes) { setError("File exceeds the current encrypted upload limit. Choose a smaller file."); return; }
     await run("tank", async (signal) => {
       if (!prepared) {
         const result = await encryptFile(await file.arrayBuffer(), file.name);
@@ -358,7 +370,7 @@ export default function Workspace() {
       <div className="section-heading">
         <div>
           <span className="eyebrow">YOUR STORAGE WORKSPACE</span>
-          <h2 id="workspace-title">Make room for what matters.</h2>
+          <h2 id="workspace-title" tabIndex={-1}>Make room for what matters.</h2>
         </div>
         <div className="workspace-connection">
           <span className="connection-badge">
@@ -405,9 +417,10 @@ export default function Workspace() {
               type="file"
               aria-label="Choose a file to tank"
               disabled={Boolean(busy)}
-              onChange={(event) =>
-                chooseFile(event.target.files?.[0] ?? null)
-              }
+              onChange={(event) => {
+                chooseFile(event.target.files?.[0] ?? null);
+                event.target.value = "";
+              }}
             />
             <span className="upload-icon" aria-hidden="true">↑</span>
             <strong>{file ? file.name : "Drop your file here"}</strong>
@@ -416,7 +429,7 @@ export default function Workspace() {
                 ? `${(file.size / 1024).toFixed(1)} KiB · Ready to tank`
                 : "or click to browse your files"}
             </span>
-            <small>Any file type · 16 MiB minus 4.1 KiB encryption overhead</small>
+            <small>Any file type · Up to {maxPlainBytes.toLocaleString()} bytes after encryption overhead</small>
           </label>
 
           {prepared && (
