@@ -86,7 +86,7 @@ func Open(ctx context.Context, cfg Config) (*Client, error) {
 
 	host := u.Hostname()
 	ip := net.ParseIP(host)
-	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+	if !strings.EqualFold(host, "localhost") && (ip == nil || !ip.IsLoopback()) {
 		return nil, fmt.Errorf("unlocked-account client requires a loopback RPC")
 	}
 

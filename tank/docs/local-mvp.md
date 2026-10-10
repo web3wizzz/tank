@@ -88,8 +88,10 @@ The test verifies:
 It uses a separate temporary database and storage directories, prints no
 credentials or recovery keys, and removes its own processes and files at exit.
 It does not stop personal services or modify the existing local-demo database.
-Chain registration is disabled in this isolated browser stack; Go registry tests,
-Foundry tests, and the existing [registration guide](automatic-registration.md)
+Chain registration is disabled in this isolated browser stack. Separate Go
+JSON-RPC tests cover worker configuration, paginated reconciliation, matching and
+conflicting records, outages, saved transactions, and retry/readback recovery.
+Foundry tests exercise the registry and fuzz inputs; the existing [registration guide](automatic-registration.md)
 cover that subsystem separately.
 
 ## Remaining scope

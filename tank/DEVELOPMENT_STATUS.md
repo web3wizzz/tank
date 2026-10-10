@@ -67,28 +67,6 @@ spending, or destructive changes to existing local data are authorized.
   mobile overflow, stale FAQ, same-file reselection, login error/focus handling,
   contract CI, and broader SDK/build coverage.
 
-## Remaining backlog, in order
-
-1. Improve frontend accessibility, responsiveness, and error handling.
-2. Update SDK documentation, README, CONTRIBUTING.md, and SECURITY.md.
-3. Strengthen CI for Go, contracts, SDKs, and frontend.
-4. Review the complete local MVP and fix reproducible defects.
-
-## Blockers and working-tree notes
-
-- No essential blocker currently known. The existing main branch is unprotected,
-  origin/main matches the local HEAD, and GitHub API authentication works.
-- Preserve pre-existing unstaged README/CONTRIBUTING and CI changes. Stage only
-  milestone changes. Local environment, credentials, keys, storage, databases,
-  logs, dependencies, and build output must remain ignored and untracked.
-- Live storage and Anvil services belong to the user. Isolated integration tests
-  create and stop their own temporary stack; never stop the user's storage nodes.
-
-## Next task
-
-Finish and publish verified resource bounds and quota accounting, inspect Actions,
-then fix the reviewed frontend accessibility/responsiveness/error-handling issues.
-
 ## Completed milestone: frontend usability
 
 - Fixed 320px navigation overflow, repeated file selection, stale encryption FAQ,
@@ -107,7 +85,7 @@ then fix the reviewed frontend accessibility/responsiveness/error-handling issue
 - Added SECURITY.md with private reporting, trust boundaries, copied-session
   replay limits, key loss, local-chain restrictions, and private-state handling.
 - Reviewed examples against current APIs; all local documentation links pass.
-  Diff/private-artifact review passed. Published as `9b6ef73`; SDK Actions passed, Go Actions pending.
+  Diff/private-artifact review passed. Published as `9b6ef73`; Go and SDK Actions passed.
 - Next: contract/browser CI and full Go/SDK build coverage.
 
 ## Completed milestone: CI coverage
@@ -118,6 +96,48 @@ then fix the reviewed frontend accessibility/responsiveness/error-handling issue
 - Go formatting now includes public SDK/examples and builds every executable.
   SDK CI runs for feature-branch pushes as well as main.
 - actionlint v1.7.12 passed for all four workflows; launcher 5 tests and broader
-  Go builds passed. Publication/Actions pending.
+  Go builds passed. Published as `5e95606`; Go, SDK, browser, and contract Actions
+  all passed.
 - Next: final MVP review, registration worker failure/recovery regressions, and
   full isolated verification.
+
+## Final milestone: complete MVP review
+
+- Added isolated JSON-RPC/SQLite tests for worker configuration, 101-file
+  reconciliation preserving completed jobs, wrong chain/missing contract,
+  matching/conflicting commitments, RPC outages, durable transaction persistence,
+  missing readback, and recovery without duplicate submission.
+- Reproduced and fixed case-sensitive localhost validation in the registration
+  client, aligning it with worker validation. New regression fails before the fix
+  and passes after it. Public/non-loopback RPC remains rejected.
+- Go example output now goes to ignored `bin/examples/` in CI.
+- Validation: full Go race tests/vet/build/formatting, focused final registry race
+  tests/vet/build, 15 SDK tests/typecheck/build, 19 frontend tests/lint/build,
+  launcher 5 tests, contract 8 tests (256 fuzz cases), actionlint, and isolated
+  browser integration passed. Production npm audits reported no vulnerabilities.
+- Repeated the updated browser workflow through the actual private Codespaces
+  HTTPS gateway: sign-in, encrypted PDF, recovery import, original Unicode
+  filename/exact bytes, wrong/missing key rejection, cross-user isolation, mobile
+  layout, repeated file selection, and logout/focus all passed.
+- Found the previous live coordinator/nodes/Anvil stopped. Created private online
+  SQLite and chain snapshot backups, rebuilt all tools, and restored local
+  services. Verified schema 6 retains the original manifests, identity,
+  credentials, permissions, and filename records. Existing logs were retained;
+  restored services write separate ignored private logs.
+- Final milestone publication and GitHub Actions verification pending.
+
+## Blockers and next task
+
+No essential implementation blocker. Phase 1 local backlog is complete; only final
+publication/Actions verification remains. Stop after those checks pass. Do not
+expand into production deployment, public chains, payments, signup, streaming,
+operator economics, or package publication.
+
+Known MVP limits are documented in SECURITY.md and the resource/browser guides:
+lost recovery keys cannot be recovered; copied sessions survive logout until
+expiry or credential revocation; failed uploads may retain shards; node capacity
+assumes one process owns each directory; chain resets can stale recorded status.
+
+Private credentials, environment, backups, local storage, chain state, logs,
+dependencies, and build output remain ignored and untracked. Restored local
+services remain available; no deployment or existing-data deletion occurred.
