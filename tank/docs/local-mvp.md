@@ -46,6 +46,8 @@ npm run lint
 npm run build
 npx playwright install --with-deps chromium
 npm run test:integration
+# Extended local Phase 2 process-loss/restart/backup drill:
+npm run test:pilot
 ```
 
 From `tank/contracts/` with Foundry installed:
@@ -105,3 +107,19 @@ file streaming, self-service account management, and release publication remain 
 work. Browser encryption is not applied automatically to CLI/SDK uploads.
 Losing a recovery key prevents browser decryption. Back up private keys and the
 original files during evaluation.
+
+
+## Local Phase 2 pilot drill
+
+`npm run test:pilot` adds distinct node credentials, stops an owned active storage
+process, restarts the coordinator to trigger audit, and waits for automatic repair
+onto the spare. It snapshots metadata with `tank-backup`, restarts against that
+snapshot, stops another original node, and verifies browser recovery/import,
+exact PDF bytes, original filename, and cross-user isolation. Losing a further
+node exceeds the recovery threshold: the browser must show retryable unavailability
+and create no download; restarting that node permits verified recovery again.
+Revocation and credential renewal are checked against the restored database.
+
+The drill owns all its temporary processes and data. It emulates host loss locally;
+it is not evidence of independent physical machines or Base Sepolia registration.
+See [pilot operations](pilot-operations.md) for the eventual real-host acceptance.

@@ -78,6 +78,9 @@ function failure(error: unknown) {
   if (error instanceof APIError && error.statusCode === 429) {
     return json({ error: "Too many requests. Wait briefly and try again." }, 429);
   }
+  if (error instanceof APIError && error.statusCode === 503) {
+    return json({ error: "Storage is temporarily unavailable. Try again shortly." }, 503);
+  }
   if (error instanceof APIError && error.statusCode === 507) {
     return json({ error: "Storage quota or node capacity is full. Contact your administrator." }, 507);
   }

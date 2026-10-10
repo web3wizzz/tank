@@ -237,9 +237,13 @@ func (s *Service) RunMaintenance(ctx context.Context) {
 		defer ticker.Stop()
 
 		for {
-			_, err := s.ProcessRepairJob(ctx)
+			processed, err := s.ProcessRepairJob(ctx)
 			if err != nil && ctx.Err() == nil {
 				log.Printf("[Tank] repair worker error: %v", err)
+			}
+			// Drain ready work serially instead of adding 5s per queued file.
+			if processed && err == nil {
+				continue
 			}
 
 			select {

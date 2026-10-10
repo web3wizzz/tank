@@ -52,4 +52,4 @@ jobs:
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Verify isolated storage and browser integration
-        run: npm run test:integration
+        run: npm run test:pilot

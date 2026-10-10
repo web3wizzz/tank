@@ -98,7 +98,8 @@ separate later scopes.
 
 ## Acceptance evidence
 
-Run the local pilot drill first; it uses synthetic users/data and owned temporary
+From `tank/frontend/`, after building the linked SDK/frontend and installing
+Chromium, run `npm run test:pilot`. Run the local pilot drill first; it uses synthetic users/data and owned temporary
 processes only. Record it as local emulation. The eventual real-host drill must
 stop one entire active storage machine, restore the encrypted PDF with its
 original filename and exact bytes, observe automatic repair onto the independent

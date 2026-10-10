@@ -201,7 +201,7 @@ removing its restrictions.
   browser integration; Base Sepolia scripts remain preparation-only.
 
 
-### Current milestone: separate-machine configuration preparation
+### Completed milestone: separate-machine configuration preparation — `4560107`
 
 - Remote nodes require HTTPS; loopback HTTP stays compatible. TLS trust and
   redirect rejection tests pass. No insecure-certificate option was added.
@@ -212,6 +212,25 @@ removing its restrictions.
 - Retention duration/funding/operator-exit terms are explicitly undecided and
   required before real users; no perpetual-storage promise is made.
 - Full Go race tests/vet/build passed; local systemd template validation and
-  configuration/secret placeholder checks passed. Publication/Actions pending.
+  configuration/secret placeholder checks passed. All four Actions passed.
 - Next: reproducible local machine-loss, repair, metadata restart/restore, and
   encrypted browser acceptance; non-broadcast Base Sepolia preparation.
+
+
+### Current milestone: reproducible local pilot acceptance
+
+- Extended the owned temporary deployment to use four distinct node credentials.
+- Verified encrypted PDF retrieval after active-node process loss, automatic
+  spare repair after coordinator restart, private metadata snapshot/restore,
+  and loss of a second original node. Exact bytes/Unicode filename and user
+  isolation survive; revocation/renewal work against restored metadata.
+- Further node loss exceeds coding tolerance: download is blocked with a stable
+  retryable error, then restarting the preserved node permits exact decryption.
+- Fixed the maintenance worker's unnecessary five-second delay per ready job.
+  A regression proves queued jobs drain serially before the polling interval.
+- Coordinator race tests/vet/build and frontend 19 tests/lint/production build
+  plus the full pilot drill passed. Browser CI now runs the stronger drill.
+- Evidence is explicitly local process-loss emulation, not independent machines
+  or testnet registration. Publication/Actions pending.
+- Next: offline Base Sepolia preparation/contract validation and readiness docs;
+  real RPC/signer/hosts and deployment authorization remain absent.

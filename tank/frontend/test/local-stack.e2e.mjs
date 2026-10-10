@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,7 @@ const frontend = fileURLToPath(new URL("..", import.meta.url));
 const project = resolve(frontend, "..");
 const directory = await mkdtemp(join(tmpdir(), "tank-integration-"));
 const children = [];
+const pilot = process.argv.includes("--pilot");
 let shuttingDown = false;
 function start(command, args, options = {}) {
   const child = spawn(command, args, { cwd: project, env, stdio: "ignore", ...options });
@@ -87,24 +88,34 @@ for (const key of Object.keys(env)) {
 try {
   await mkdir(join(directory, "bin"));
   console.log("Building temporary storage, coordinator, and credential tools…");
-  for (const [binary, command] of [["node", "tank-node"], ["coordinator", "coordinator"], ["access", "tank-access"]]) {
+  for (const [binary, command] of [["node", "tank-node"], ["coordinator", "coordinator"], ["access", "tank-access"], ["backup", "tank-backup"]]) {
     await finished(start("go", ["build", "-o", join(directory, "bin", binary), `./cmd/${command}`]), `Build ${command}`);
   }
   const nodeURLs = [];
   const nodes = [];
+  const nodeEnvironments = [];
+  const nodeCredentials = {};
   for (let index = 0; index < 4; index++) {
     const address = `127.0.0.1:${await port()}`;
-    const child = start(join(directory, "bin", "node"), [], {
-      env: { ...env, TANK_NODE_ADDR: address, TANK_NODE_DATA_DIR: join(directory, `node${index}`) },
-    });
+    const nodeEnv = { ...env, TANK_NODE_ADDR: address, TANK_NODE_DATA_DIR: join(directory, `node${index}`),
+      TANK_NODE_TOKEN: pilot ? randomBytes(32).toString("hex") : env.TANK_NODE_TOKEN };
+    delete nodeEnv.TANK_API_TOKEN; delete nodeEnv.TANK_SESSION_SECRET;
+    nodeEnvironments.push(nodeEnv);
+    nodeCredentials[`http://${address}`] = nodeEnv.TANK_NODE_TOKEN;
+    const child = start(join(directory, "bin", "node"), [], { env: nodeEnv });
     nodeURLs.push(`http://${address}`);
     nodes.push(child);
     await ready(`http://${address}/health`, child);
   }
   env.TANK_NODES = nodeURLs.join(",");
+  if (pilot) {
+    env.TANK_NODE_CREDENTIALS_FILE = join(directory, "node-credentials.json");
+    await writeFile(env.TANK_NODE_CREDENTIALS_FILE, JSON.stringify(nodeCredentials), { mode: 0o600, flag: "wx" });
+    delete env.TANK_NODE_TOKEN;
+  }
   env.TANK_COORDINATOR_ADDR = `127.0.0.1:${await port()}`;
   env.TANK_API_URL = `http://${env.TANK_COORDINATOR_ADDR}`;
-  const coordinator = start(join(directory, "bin", "coordinator"), []);
+  let coordinator = start(join(directory, "bin", "coordinator"), []);
   await ready(`${env.TANK_API_URL}/health`, coordinator);
   const alice = join(directory, "alice-credential.json");
   const bob = join(directory, "bob-credential.json");
@@ -116,6 +127,7 @@ try {
   const frontendEnv = { ...env };
   delete frontendEnv.TANK_API_TOKEN;
   delete frontendEnv.TANK_NODE_TOKEN;
+  delete frontendEnv.TANK_NODE_CREDENTIALS_FILE;
   const server = start(process.execPath, [join(frontend, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(frontendPort)], { cwd: frontend, env: frontendEnv });
   await ready(`http://127.0.0.1:${frontendPort}/api/auth/session`, server, [403]);
   const test = start(process.execPath, [join(frontend, "test/browser-encryption.e2e.mjs")], {
@@ -128,10 +140,12 @@ try {
       TANK_E2E_REPLACEMENT_FILE: join(directory, "alice-replacement.json"),
       TANK_E2E_PAGINATION: "1",
       TANK_E2E_MAX_FILE_BYTES: "8192",
+      ...(pilot ? { TANK_E2E_PILOT: "1" } : {}),
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
   });
   let fixtures;
+  let recoveryDrill;
   test.on("message", (message) => {
     if (message?.type === "upload-complete") {
       fixtures = (async () => {
@@ -146,10 +160,58 @@ try {
       fixtures.catch(() => {
         if (test.connected) test.send({ type: "fixture-error" });
       });
+    } else if (message?.type === "pilot-recovery-ready" && pilot) {
+      recoveryDrill = (async () => {
+        await fixtures;
+        // Restarting our owned coordinator triggers an immediate persisted audit.
+        await stop(coordinator);
+        coordinator = start(join(directory, "bin", "coordinator"), []);
+        await ready(`${env.TANK_API_URL}/health`, coordinator);
+        let repaired = false;
+        for (let attempt = 0; attempt < 150; attempt++) {
+          const response = await fetch(`${env.TANK_API_URL}/ops/status`, {
+            headers: { Authorization: `Bearer ${env.TANK_API_TOKEN}` }, signal: AbortSignal.timeout(3000),
+          });
+          const result = await response.json();
+          if (result.last_audit?.state === "completed" && result.metadata?.repair_jobs === 0 &&
+              result.nodes?.some((node) => !node.initial_placement && node.capacity?.used_files > 0)) {
+            assert.equal(result.upload_ready, false);
+            assert.equal(result.degraded, true);
+            repaired = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+        assert.ok(repaired, "Automatic repair did not drain the machine-loss backlog onto the spare.");
+        console.log("PASS: owned storage-process loss triggers automatic repair onto the spare after coordinator restart.");
+        const restored = join(directory, "restored-metadata.sqlite");
+        await finished(start(join(directory, "bin", "backup"), ["--db", env.TANK_DATABASE_PATH, "--out", restored]), "Private snapshot");
+        await stop(coordinator);
+        env.TANK_DATABASE_PATH = restored;
+        coordinator = start(join(directory, "bin", "coordinator"), []);
+        await ready(`${env.TANK_API_URL}/health`, coordinator);
+        // Repaired placement must tolerate losing another original node.
+        await stop(nodes[1]);
+        if (test.connected) test.send({ type: "pilot-restored", databasePath: restored });
+      })();
+      recoveryDrill.catch(() => {
+        if (test.connected) test.send({ type: "fixture-error" });
+      });
+    } else if (message?.type === "pilot-outage-ready" && pilot) {
+      (async () => { await stop(nodes[2]); if (test.connected) test.send({ type: "pilot-outage" }); })().catch(() => {
+        if (test.connected) test.send({ type: "fixture-error" });
+      });
+    } else if (message?.type === "pilot-recover-node" && pilot) {
+      (async () => {
+        nodes[2] = start(join(directory, "bin", "node"), [], { env: nodeEnvironments[2] });
+        await ready(`${nodeURLs[2]}/health`, nodes[2]);
+        if (test.connected) test.send({ type: "pilot-available" });
+      })().catch(() => { if (test.connected) test.send({ type: "fixture-error" }); });
     }
   });
   await finished(test, "Browser integration");
   await fixtures;
+  await recoveryDrill;
   // A stalled registration upstream must honor the frontend deadline and free admission.
   const stalled = createHTTPServer((request, response) => {
     if (request.url === "/list") {

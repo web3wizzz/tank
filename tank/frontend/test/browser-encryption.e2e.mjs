@@ -339,6 +339,64 @@ try {
   assert.deepEqual(failures, []);
   assert.deepEqual(leakedRequests, []);
   console.log("PASS: missing/wrong keys fail closed; reloaded recovery restores identical PDF bytes and original Unicode filename.");
+  if (process.env.TANK_E2E_PILOT === "1" && process.send) {
+    const recoveryReady = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Pilot recovery drill timed out.")), 60_000);
+      process.once("message", (message) => {
+        clearTimeout(timer);
+        if (message?.type !== "pilot-restored") { reject(new Error("Pilot recovery fixture failed.")); return; }
+        process.env.TANK_DATABASE_PATH = message.databasePath;
+        resolve();
+      });
+    });
+    process.send({ type: "pilot-recovery-ready" });
+    await recoveryReady;
+    await page.reload();
+    await page.getByText("Storage connected", { exact: true }).waitFor();
+    await page.getByLabel("Recovery key file").setInputFiles({ name: keyDownload.suggestedFilename(), mimeType: "application/json", buffer: recovery });
+    const afterRestorePromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
+    const afterRestore = await afterRestorePromise;
+    assert.equal(afterRestore.suggestedFilename(), filename);
+    const chunks = []; for await (const chunk of await afterRestore.createReadStream()) chunks.push(chunk);
+    assert.ok(Buffer.concat(chunks).equals(original), "Restored metadata/repair changed the PDF bytes.");
+    const other = await readCredential(process.env.TANK_E2E_OTHER_CREDENTIAL_FILE);
+    const outsider = await browser.newContext();
+    try {
+      await configureTransport(outsider);
+      const outsiderPage = await outsider.newPage();
+      await openWorkspace(outsiderPage); await fillCredential(outsiderPage, other.token);
+      await outsiderPage.getByRole("button", { name: "Open my workspace" }).click();
+      await outsiderPage.getByText("Storage connected", { exact: true }).waitFor();
+      const rejected = await outsiderPage.evaluate(async (id) => (await fetch(`/api/tank/files/${id}`, {
+        headers: { "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin },
+      })).status, keyData.file_id);
+      assert.equal(rejected, 404, "Backup restoration leaked another user's access.");
+    } finally { await outsider.close(); }
+    console.log("PASS: restored metadata, imported recovery key, repaired placement, and a second node loss preserve PDF bytes/filename and user isolation.");
+    async function fixtureStep(type, expected) {
+      const pending = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Pilot outage step timed out.")), 15_000);
+        process.once("message", (message) => {
+          clearTimeout(timer);
+          if (message?.type === expected) resolve(); else reject(new Error("Pilot outage fixture failed."));
+        });
+      });
+      process.send({ type }); await pending;
+    }
+    await fixtureStep("pilot-outage-ready", "pilot-outage");
+    await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "Storage is temporarily unavailable" }).waitFor();
+    await assert.rejects(page.waitForEvent("download", { timeout: 500 }), (error) => error.name === "TimeoutError");
+    await fixtureStep("pilot-recover-node", "pilot-available");
+    const recoveredPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
+    const recovered = await recoveredPromise;
+    assert.equal(recovered.suggestedFilename(), filename);
+    const recoveredChunks = []; for await (const chunk of await recovered.createReadStream()) recoveredChunks.push(chunk);
+    assert.ok(Buffer.concat(recoveredChunks).equals(original));
+    console.log("PASS: exceeding the recovery threshold blocks downloads with a retryable error; restored node availability permits verified decryption.");
+  }
   if (upstream) {
     let release;
     let ready;
