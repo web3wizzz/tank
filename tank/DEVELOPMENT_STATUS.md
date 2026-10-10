@@ -186,7 +186,7 @@ removing its restrictions.
   restart/backup restore acceptance; offline Base Sepolia preparation scripts.
 
 
-### Current milestone: authenticated operational status
+### Completed milestone: authenticated operational status — `d3df72a`
 
 - Added administrator-only coordinator and node-credential-only storage reports.
   Aggregates expose logical/physical capacity, repair/registration backlog, and
@@ -196,6 +196,22 @@ removing its restrictions.
 - Go race tests for metadata/storage/nodes/coordinator, vet/build, and diff checks
   passed. Regression tests cover role isolation, exhausted quotas, closed
   backends/database, stalled probes, and malformed capacity responses.
-- Added monitoring guide. Publication/Actions pending.
+- Added monitoring guide. All four Actions passed.
 - Next: TLS and per-node credentials, deployment templates, and failure/restore
   browser integration; Base Sepolia scripts remain preparation-only.
+
+
+### Current milestone: separate-machine configuration preparation
+
+- Remote nodes require HTTPS; loopback HTTP stays compatible. TLS trust and
+  redirect rejection tests pass. No insecure-certificate option was added.
+- Coordinator supports a private per-node credential map with preserved placement
+  order, complete coverage, unique tokens, and private-file/symlink checks.
+- Added configurable coordinator/node/frontend templates, hardened systemd units,
+  reverse-proxy examples, and hardware/ports/storage/secret/operator documentation.
+- Retention duration/funding/operator-exit terms are explicitly undecided and
+  required before real users; no perpetual-storage promise is made.
+- Full Go race tests/vet/build passed; local systemd template validation and
+  configuration/secret placeholder checks passed. Publication/Actions pending.
+- Next: reproducible local machine-loss, repair, metadata restart/restore, and
+  encrypted browser acceptance; non-broadcast Base Sepolia preparation.

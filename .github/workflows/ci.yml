@@ -52,6 +52,7 @@ jobs:
         run: |
           bash -n scripts/*.sh
           python3 scripts/test-local-env.py
+          python3 scripts/test-pilot-templates.py
 
       - name: Static checks
         run: go vet ./...

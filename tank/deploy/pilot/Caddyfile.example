@@ -1,0 +1,14 @@
+# Choose one block on the corresponding machine and substitute its actual host.
+# Bind Go backends to loopback. Restrict proxy ingress with the host firewall.
+# Keep proxy/access logs private; never log Authorization or cookies.
+REPLACE_NODE_HOST {
+    reverse_proxy 127.0.0.1:9101
+}
+
+REPLACE_COORDINATOR_HOST {
+    reverse_proxy 127.0.0.1:8080
+}
+
+REPLACE_FRONTEND_HOST {
+    reverse_proxy 127.0.0.1:3000
+}

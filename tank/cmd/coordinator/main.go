@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -30,16 +29,9 @@ func run() error {
 	}
 	defer store.Close()
 
-	var clients []*node.Client
-	for _, address := range strings.Split(os.Getenv("TANK_NODES"), ",") {
-		client, err := node.NewClient(
-			strings.TrimSpace(address),
-			os.Getenv("TANK_NODE_TOKEN"),
-		)
-		if err != nil {
-			return err
-		}
-		clients = append(clients, client)
+	clients, err := node.ConfiguredClients(os.Getenv("TANK_NODES"), os.Getenv("TANK_NODE_TOKEN"), os.Getenv("TANK_NODE_CREDENTIALS_FILE"))
+	if err != nil {
+		return err
 	}
 
 	service, err := coordinator.NewServiceWithLimits(store, clients, cfg.MaxSegmentBytes, cfg.Limits)

@@ -1,0 +1,25 @@
+[Unit]
+Description=Tank pilot coordinator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tank
+Group=tank
+UMask=0077
+EnvironmentFile=/etc/tank/coordinator.conf
+ExecStart=/opt/tank/bin/coordinator
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StateDirectory=tank-coordinator
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tank-coordinator
+
+[Install]
+WantedBy=multi-user.target

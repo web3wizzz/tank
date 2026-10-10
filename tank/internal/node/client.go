@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,6 +28,12 @@ func NewClient(address, token string) (*Client, error) {
 		u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
 		(u.Path != "" && u.Path != "/") {
 		return nil, fmt.Errorf("invalid node URL")
+	}
+	if u.Scheme == "http" {
+		ip := net.ParseIP(u.Hostname())
+		if !strings.EqualFold(u.Hostname(), "localhost") && (ip == nil || !ip.IsLoopback()) {
+			return nil, fmt.Errorf("remote node URLs require HTTPS")
+		}
 	}
 	if len(token) < 32 {
 		return nil, fmt.Errorf("node token must contain at least 32 characters")
