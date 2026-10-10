@@ -40,7 +40,7 @@ func TestMigrationWaitsForWriter(t *testing.T) {
 
 	// Keep a version-3 schema change uncommitted.
 	if _, err := conn.ExecContext(ctx,
-		"DROP TABLE file_access; DROP TABLE api_credentials; DROP TABLE principals; DROP TABLE file_names; PRAGMA user_version = 3;",
+		"DROP TABLE upload_leases; DROP TABLE file_access; DROP TABLE api_credentials; DROP TABLE principals; DROP TABLE file_names; PRAGMA user_version = 3;",
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestMigrationWaitsForWriter(t *testing.T) {
 	if err := peer.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 5 {
-		t.Fatalf("schema version = %d, want 5", version)
+	if version != 6 {
+		t.Fatalf("schema version = %d, want 6", version)
 	}
 }

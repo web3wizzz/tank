@@ -48,7 +48,7 @@ func newRegistrationHandler(
 	store *metadata.Store,
 	token, target string,
 ) http.Handler {
-	auth := newAuthorizer(service.store, token).middleware
+	auth := newAuthorizer(service.store, token, service.governor).middleware
 	mux := http.NewServeMux()
 	mux.Handle("/", base)
 

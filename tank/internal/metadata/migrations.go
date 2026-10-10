@@ -31,8 +31,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	if version > 5 {
-		return fmt.Errorf("database schema %d is newer than supported schema 5", version)
+	if version > 6 {
+		return fmt.Errorf("database schema %d is newer than supported schema 6", version)
 	}
 
 	if version == 0 {
@@ -126,6 +126,19 @@ func migrate(ctx context.Context, db *sql.DB) error {
 
 			PRAGMA user_version = 5;
 		`); err != nil {
+			return err
+		}
+	}
+
+	if version < 6 {
+		if _, err := tx.ExecContext(ctx, `
+   CREATE TABLE upload_leases (
+    name TEXT PRIMARY KEY,
+    lease_token TEXT NOT NULL,
+    lease_until INTEGER NOT NULL
+   );
+   PRAGMA user_version = 6;
+  `); err != nil {
 			return err
 		}
 	}

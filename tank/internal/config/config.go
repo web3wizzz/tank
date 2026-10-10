@@ -6,9 +6,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"tank.local/tank/internal/limits"
 )
 
 type Config struct {
+	Limits          limits.Config
 	CoordinatorAddr string
 	NodeAddr        string
 	NodeDataDir     string
@@ -17,7 +20,12 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	resourceLimits, err := limits.Load()
+	if err != nil {
+		return Config{}, err
+	}
 	c := Config{
+		Limits:          resourceLimits,
 		CoordinatorAddr: value("TANK_COORDINATOR_ADDR", "127.0.0.1:8080"),
 		NodeAddr:        value("TANK_NODE_ADDR", "127.0.0.1:9101"),
 		NodeDataDir:     value("TANK_NODE_DATA_DIR", "data/node1"),

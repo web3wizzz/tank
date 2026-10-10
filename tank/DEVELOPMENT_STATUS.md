@@ -39,30 +39,40 @@ spending, or destructive changes to existing local data are authorized.
   integration, and diff checks passed. Pushed to origin/main; Tank CI and
   TypeScript SDK CI passed.
 
-## Current milestone: remaining authentication/session defects
+### Authentication/session hardening — `96d1cd6`
 
-- The independent security review found upload bodies buffered before session
-  validation and uncancelled downloads after sign-out. Authenticate before reading
-  uploads; abort workspace requests on session end and before plaintext downloads.
-- Browser checks passed for headers-only unauthenticated uploads and a held
-  authenticated retrieval followed by sign-out: 401 before body upload, and the
-  pending request aborts without a late plaintext download.
-- Validation: 17 frontend tests, lint, production build, full isolated integration,
-  and diff checks passed. Publication and Actions verification are next.
-- Read-only reviews also confirmed mobile navigation overflow, stale encryption
-  FAQ text, same-file reselection, JSON-only login error handling, focus issues,
-  missing contract CI, and incomplete SDK/build workflow coverage. These remain
-  assigned to their ordered frontend/docs/CI milestones.
+- Validates sessions upstream before buffering upload bodies.
+- Cancels workspace requests at session end/unmount and checks cancellation before
+  downloads after asynchronous crypto operations.
+- Browser regressions passed for a headers-only unauthenticated upload and a held
+  authenticated retrieval followed by logout, with no late plaintext download.
+- Validation: 17 frontend tests, lint/build, full isolated integration, diff checks.
+- Pushed to origin/main. Tank CI and TypeScript SDK CI passed.
+
+## Current milestone: resource limits and quotas
+
+- Validated configuration for upload size, headers, request deadlines, authenticated
+  rate budgets, request concurrency, and accepted TCP connections.
+- Logical per-user/total storage quotas check before shards are written, protected
+  by a fenced SQLite upload lease shared across coordinator processes.
+- Node capacity counts retained data and supports repair/atomic replacement without
+  deleting existing files. Frontend admission bounds buffered requests and returns
+  stable 413/429/507 errors. Integration settings are explicitly isolated.
+- Validation passed: full Go race tests, vet/build, SDK tests/build, frontend
+  19 tests/lint/build, and isolated browser integration. A stalled registration
+  regression verifies the configured deadline and admission release.
+- Security review found no confirmed quota race; authenticated governor buckets
+  persist for administratively provisioned users. Publication/Actions pending.
+- Independent review findings retained for upcoming frontend/docs/CI milestones:
+  mobile overflow, stale FAQ, same-file reselection, login error/focus handling,
+  contract CI, and broader SDK/build coverage.
 
 ## Remaining backlog, in order
 
-1. Finish authentication/authorization/session fixes and pagination verification.
-2. Inspect and add configurable request limits, storage quotas, and concurrency
-   bounds, with meaningful failure and isolation tests.
-3. Improve frontend accessibility, responsiveness, and error handling.
-4. Update SDK documentation, README, CONTRIBUTING.md, and SECURITY.md.
-5. Strengthen CI for Go, contracts, SDKs, and frontend.
-6. Review the complete local MVP and fix reproducible defects.
+1. Improve frontend accessibility, responsiveness, and error handling.
+2. Update SDK documentation, README, CONTRIBUTING.md, and SECURITY.md.
+3. Strengthen CI for Go, contracts, SDKs, and frontend.
+4. Review the complete local MVP and fix reproducible defects.
 
 ## Blockers and working-tree notes
 
@@ -76,5 +86,5 @@ spending, or destructive changes to existing local data are authorized.
 
 ## Next task
 
-Publish and verify the session/body-buffering fix, then implement configurable
-request limits, storage quotas, and concurrency bounds.
+Finish and publish verified resource bounds and quota accounting, inspect Actions,
+then fix the reviewed frontend accessibility/responsiveness/error-handling issues.

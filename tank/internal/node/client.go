@@ -74,6 +74,9 @@ func (c *Client) Put(
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusInsufficientStorage {
+		return storage.ErrQuotaExceeded
+	}
 	if res.StatusCode != http.StatusCreated {
 		return fmt.Errorf("node PUT returned HTTP %d", res.StatusCode)
 	}

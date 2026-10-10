@@ -13,6 +13,7 @@ import (
 
 	"tank.local/tank/internal/config"
 	"tank.local/tank/internal/coordinator"
+	"tank.local/tank/internal/limits"
 	"tank.local/tank/internal/metadata"
 	"tank.local/tank/internal/node"
 )
@@ -41,7 +42,7 @@ func run() error {
 		clients = append(clients, client)
 	}
 
-	service, err := coordinator.NewService(store, clients, cfg.MaxSegmentBytes)
+	service, err := coordinator.NewServiceWithLimits(store, clients, cfg.MaxSegmentBytes, cfg.Limits)
 	if err != nil {
 		return err
 	}
@@ -62,11 +63,17 @@ func run() error {
 		Addr:              cfg.CoordinatorAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      120 * time.Second,
+		ReadTimeout:       min(30*time.Second, cfg.Limits.RequestTimeout),
+		WriteTimeout:      cfg.Limits.RequestTimeout + 5*time.Second,
 		IdleTimeout:       60 * time.Second,
-		MaxHeaderBytes:    16 << 10,
+		MaxHeaderBytes:    cfg.Limits.MaxHeaderBytes,
 	}
+
+	listener, err := limits.Listen(cfg.CoordinatorAddr, cfg.Limits.MaxConnections)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
 
 	ctx, stop := signal.NotifyContext(
 		context.Background(), os.Interrupt, syscall.SIGTERM,
@@ -86,7 +93,7 @@ func run() error {
 	result := make(chan error, 1)
 	go func() {
 		log.Printf("[Tank] coordinator listening on %s", cfg.CoordinatorAddr)
-		result <- server.ListenAndServe()
+		result <- server.Serve(listener)
 	}()
 
 	select {

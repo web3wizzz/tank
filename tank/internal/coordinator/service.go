@@ -9,6 +9,7 @@ import (
 
 	"tank.local/tank/internal/encoding"
 	"tank.local/tank/internal/integrity"
+	"tank.local/tank/internal/limits"
 	"tank.local/tank/internal/metadata"
 	"tank.local/tank/internal/node"
 	"tank.local/tank/internal/storage"
@@ -22,10 +23,12 @@ var (
 )
 
 type Service struct {
-	store       *metadata.Store
-	nodes       []*node.Client
-	byURL       map[string]*node.Client
-	segmentSize int
+	resourceLimits limits.Config
+	governor       *limits.Governor
+	store          *metadata.Store
+	nodes          []*node.Client
+	byURL          map[string]*node.Client
+	segmentSize    int
 }
 
 func NewService(
@@ -33,6 +36,14 @@ func NewService(
 	nodes []*node.Client,
 	segmentSize int,
 ) (*Service, error) {
+	return NewServiceWithLimits(store, nodes, segmentSize, limits.Default())
+}
+
+func NewServiceWithLimits(store *metadata.Store, nodes []*node.Client, segmentSize int, bounds limits.Config) (*Service, error) {
+	governor, err := limits.New(bounds)
+	if err != nil {
+		return nil, err
+	}
 	if store == nil || len(nodes) < 3 {
 		return nil, fmt.Errorf("metadata store and three nodes are required")
 	}
@@ -52,6 +63,7 @@ func NewService(
 	}
 
 	return &Service{
+		resourceLimits: bounds, governor: governor,
 		store:       store,
 		nodes:       append([]*node.Client(nil), nodes[:3]...),
 		byURL:       byURL,

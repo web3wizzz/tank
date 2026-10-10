@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
+import { createServer as createHTTPServer } from "node:http";
+import assert from "node:assert/strict";
 import { Tank } from "@tank-storage/sdk";
 
 // Everything created by this runner belongs to a separate temporary local stack.
@@ -67,12 +69,15 @@ async function ready(url, child, statuses = [200]) {
   }
   throw new Error("Temporary service startup timed out.");
 }
-const env = { ...process.env,
+const cleanEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("TANK_")));
+const env = { ...cleanEnvironment,
   TANK_API_TOKEN: randomBytes(32).toString("hex"),
   TANK_NODE_TOKEN: randomBytes(32).toString("hex"),
   TANK_SESSION_SECRET: randomBytes(32).toString("hex"),
   TANK_DATABASE_PATH: join(directory, "tank.sqlite"),
   TANK_MAX_SEGMENT_BYTES: "4194304",
+  TANK_MAX_FILE_BYTES: "8192",
+  TANK_REQUESTS_PER_MINUTE: "0",
   TANK_FRONTEND_ORIGIN: "https://tank-integration.invalid",
 };
 // Prevent inherited chain settings or a personal credential from reaching tests.
@@ -122,6 +127,7 @@ try {
       TANK_E2E_ACCESS_TOOL: join(directory, "bin", "access"),
       TANK_E2E_REPLACEMENT_FILE: join(directory, "alice-replacement.json"),
       TANK_E2E_PAGINATION: "1",
+      TANK_E2E_MAX_FILE_BYTES: "8192",
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
   });
@@ -144,6 +150,42 @@ try {
   });
   await finished(test, "Browser integration");
   await fixtures;
+  // A stalled registration upstream must honor the frontend deadline and free admission.
+  const stalled = createHTTPServer((request, response) => {
+    if (request.url === "/list") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end("[]");
+    }
+    // Deliberately hold registration requests until frontend cancellation closes them.
+  });
+  await new Promise((resolve) => stalled.listen(0, "127.0.0.1", resolve));
+  try {
+    const deadlinePort = await port();
+    const deadlineServer = start(process.execPath, [join(frontend, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(deadlinePort)], {
+      cwd: frontend, env: { ...frontendEnv, TANK_API_URL: `http://127.0.0.1:${stalled.address().port}`, TANK_REQUEST_TIMEOUT_SECONDS: "1", TANK_FRONTEND_MAX_CONCURRENT_REQUESTS: "1" },
+    });
+    const base = `http://127.0.0.1:${deadlinePort}`;
+    await ready(`${base}/api/auth/session`, deadlineServer, [403]);
+    const headers = { Origin: env.TANK_FRONTEND_ORIGIN, "X-Tank-Workspace": "1", "X-Tank-Origin": env.TANK_FRONTEND_ORIGIN, "Content-Type": "application/json" };
+    const { token } = JSON.parse(await readFile(bob, "utf8"));
+    const login = await fetch(`${base}/api/auth/session`, { method: "POST", headers, body: JSON.stringify({ token }) });
+    assert.equal(login.status, 200, "Deadline fixture sign-in failed.");
+    headers.Cookie = login.headers.get("set-cookie").split(";")[0];
+    await login.body?.cancel();
+    const started = Date.now();
+    const result = await fetch(`${base}/api/tank/registrations/${"a".repeat(64)}`, { headers, signal: AbortSignal.timeout(5000) });
+    assert.equal(result.status, 504);
+    await result.body?.cancel();
+    assert.ok(Date.now() - started < 4000, "Registration exceeded configured deadline.");
+    const health = await fetch(`${base}/api/tank/health`, { headers, signal: AbortSignal.timeout(5000) });
+    assert.equal(health.status, 200, "Timed-out registration retained admission.");
+    await health.body?.cancel();
+    await stop(deadlineServer);
+    console.log("PASS: stalled registration honors frontend timeout and releases admission.");
+  } finally {
+    stalled.closeAllConnections();
+    await new Promise((resolve) => stalled.close(resolve));
+  }
   console.log("PASS: isolated local MVP integration, with temporary users and data.");
 } finally {
   await cleanup();

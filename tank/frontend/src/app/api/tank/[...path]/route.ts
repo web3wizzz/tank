@@ -1,3 +1,4 @@
+import { admitServerRequest, ServerLimitError, serverLimits } from "@/lib/server-limits";
 import { APIError, IntegrityError } from "@tank-storage/sdk";
 import {
   SessionError,
@@ -8,7 +9,6 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 16 * 1024 * 1024;
 const ID_PATTERN = /^[a-f0-9]{64}$/;
 
 type Context = {
@@ -30,6 +30,7 @@ function json(value: unknown, status = 200) {
     headers: {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      ...(status === 429 ? { "Retry-After": "1" } : {}),
     },
   });
 }
@@ -56,6 +57,7 @@ function validateID(id: string | undefined): string {
 }
 
 function failure(error: unknown) {
+  if (error instanceof ServerLimitError) { return json({ error: error.message }, error.status); }
   if (error instanceof SessionError) {
     return json({ error: error.message }, error.status);
   }
@@ -70,6 +72,15 @@ function failure(error: unknown) {
     return json({ error: error.message }, error.status);
   }
 
+  if (error instanceof APIError && error.statusCode === 413) {
+    return json({ error: "File exceeds the configured storage upload limit." }, 413);
+  }
+  if (error instanceof APIError && error.statusCode === 429) {
+    return json({ error: "Too many requests. Wait briefly and try again." }, 429);
+  }
+  if (error instanceof APIError && error.statusCode === 507) {
+    return json({ error: "Storage quota or node capacity is full. Contact your administrator." }, 507);
+  }
   if (error instanceof IntegrityError) {
     return json(
       { error: "Integrity verification failed. Download blocked." },
@@ -77,7 +88,8 @@ function failure(error: unknown) {
     );
   }
 
-  if (error instanceof Error && error.name === "TimeoutError") {
+  if ((error instanceof Error && error.name === "TimeoutError") ||
+      (error instanceof APIError && [408, 504].includes(error.statusCode))) {
     return json({ error: "Storage timed out. Try again." }, 504);
   }
 
@@ -96,7 +108,7 @@ function failure(error: unknown) {
   );
 }
 
-async function readFile(request: Request): Promise<Uint8Array> {
+async function readFile(request: Request, maxBytes: number): Promise<Uint8Array> {
   if (request.headers.get("content-type") !== "application/octet-stream") {
     throw new RequestError(415, "Send raw file bytes.");
   }
@@ -105,8 +117,8 @@ async function readFile(request: Request): Promise<Uint8Array> {
 
   if (declared !== null) {
     const length = Number(declared);
-    if (!Number.isSafeInteger(length) || length < 1 || length > MAX_BYTES) {
-      throw new RequestError(413, "Choose a file between 1 byte and 16 MiB.");
+    if (!Number.isSafeInteger(length) || length < 1 || length > maxBytes) {
+      throw new RequestError(413, "Choose a file within the configured upload limit.");
     }
   }
 
@@ -115,24 +127,29 @@ async function readFile(request: Request): Promise<Uint8Array> {
   }
 
   const reader = request.body.getReader();
+  const cancel = () => { void reader.cancel().catch(() => {}); };
+  request.signal.addEventListener("abort", cancel, { once: true });
   const chunks: Uint8Array[] = [];
   let length = 0;
 
   try {
     while (true) {
+      request.signal.throwIfAborted();
       const { done, value } = await reader.read();
+      request.signal.throwIfAborted();
       if (done) break;
 
       length += value.byteLength;
 
-      if (length > MAX_BYTES) {
+      if (length > maxBytes) {
         await reader.cancel();
-        throw new RequestError(413, "The file exceeds 16 MiB.");
+        throw new RequestError(413, "The file exceeds the configured upload limit.");
       }
 
       chunks.push(value);
     }
   } finally {
+    request.signal.removeEventListener("abort", cancel);
     reader.releaseLock();
   }
 
@@ -152,13 +169,18 @@ async function readFile(request: Request): Promise<Uint8Array> {
 }
 
 export async function GET(request: Request, context: Context) {
+  let admission: ReturnType<typeof admitServerRequest> | undefined;
   try {
     checkRequest(request);
+    admission = admitServerRequest();
+    request = new Request(request, { signal: AbortSignal.any([
+      request.signal, AbortSignal.timeout(admission.timeoutMs),
+    ]) });
     const { path } = await context.params;
 
     if (path.length === 1 && path[0] === "health") {
       await (await client()).list("", { signal: request.signal });
-      return json({ connected: true });
+      return json({ connected: true, max_file_bytes: serverLimits().maxFileBytes });
     }
 
     if (path.length === 1 && path[0] === "files") {
@@ -169,7 +191,7 @@ export async function GET(request: Request, context: Context) {
     }
 
     if (path.length === 2 && path[0] === "registrations") {
-      const result = await (await client()).registrationStatus(validateID(path[1]));
+      const result = await (await client()).registrationStatus(validateID(path[1]), { signal: request.signal });
 
       return json({
         file_id: result.file_id,
@@ -209,12 +231,19 @@ export async function GET(request: Request, context: Context) {
     return json({ error: "Route not found." }, 404);
   } catch (error) {
     return failure(error);
+  } finally {
+    admission?.release();
   }
 }
 
 export async function POST(request: Request, context: Context) {
+  let admission: ReturnType<typeof admitServerRequest> | undefined;
   try {
     checkRequest(request);
+    admission = admitServerRequest();
+    request = new Request(request, { signal: AbortSignal.any([
+      request.signal, AbortSignal.timeout(admission.timeoutMs),
+    ]) });
     const { path } = await context.params;
 
     if (path.length !== 1 || path[0] !== "files") {
@@ -224,7 +253,7 @@ export async function POST(request: Request, context: Context) {
     const sdk = await client();
     // Reject missing, expired, and revoked credentials before buffering a body.
     await sdk.list("", { signal: request.signal });
-    const bytes = await readFile(request);
+    const bytes = await readFile(request, admission.maxFileBytes);
     const encodedName = request.headers.get("X-Tank-Filename");
     let filename: string | undefined;
 
@@ -250,5 +279,7 @@ export async function POST(request: Request, context: Context) {
     );
   } catch (error) {
     return failure(error);
+  } finally {
+    admission?.release();
   }
 }

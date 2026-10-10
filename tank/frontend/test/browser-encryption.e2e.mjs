@@ -179,6 +179,18 @@ try {
   assert.ok(cookie?.httpOnly && cookie.sameSite === "Lax");
   if (origin.startsWith("https:")) assert.ok(cookie.secure, "HTTPS sessions must use secure cookies.");
   console.log("PASS: exact origin sign-in and session cookie; unapproved/cross-site origins rejected.");
+  if (process.env.TANK_E2E_MAX_FILE_BYTES) {
+    const maximum = Number(process.env.TANK_E2E_MAX_FILE_BYTES);
+    const oversized = await page.evaluate(async (maximum) => {
+      const response = await fetch("/api/tank/files", { method: "POST", headers: {
+        "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin,
+        "Content-Type": "application/octet-stream",
+      }, body: new Uint8Array(maximum + 1) });
+      return response.status;
+    }, maximum);
+    assert.equal(oversized, 413, "Frontend must enforce the configured lower upload limit.");
+    console.log("PASS: configured frontend upload-size limit rejects oversized bodies.");
+  }
 
   // A valid one-page PDF, including Unicode in the original filename.
   const filename = "Tank résumé original.pdf";

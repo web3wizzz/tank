@@ -7,8 +7,10 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"tank.local/tank/internal/integrity"
+	"tank.local/tank/internal/limits"
 	"tank.local/tank/internal/metadata"
 )
 
@@ -26,12 +28,18 @@ func identityFromRequest(r *http.Request) (requestIdentity, bool) {
 }
 
 type authorizer struct {
+	governor  *limits.Governor
 	store     *metadata.Store
 	adminHash [32]byte
 }
 
-func newAuthorizer(store *metadata.Store, adminToken string) *authorizer {
+func newAuthorizer(store *metadata.Store, adminToken string, governors ...*limits.Governor) *authorizer {
+	var governor *limits.Governor
+	if len(governors) > 0 {
+		governor = governors[0]
+	}
 	return &authorizer{
+		governor:  governor,
 		store:     store,
 		adminHash: sha256.Sum256([]byte(adminToken)),
 	}
@@ -41,6 +49,31 @@ func (a *authorizer) middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		if a.governor != nil {
+			release, ok := a.governor.Begin()
+			if !ok {
+				limitedRequest(w)
+				return
+			}
+			defer release()
+			ctx, cancel := context.WithTimeout(r.Context(), a.governor.Timeout())
+			defer cancel()
+			r = r.WithContext(ctx)
+			// Interrupt slow body reads at the configured deadline (capped at 30s).
+			controller := http.NewResponseController(w)
+			deadline := time.Now().Add(30 * time.Second)
+			if requestDeadline, ok := ctx.Deadline(); ok && requestDeadline.Before(deadline) {
+				deadline = requestDeadline
+			}
+			if err := controller.SetReadDeadline(deadline); err == nil {
+				defer func() {
+					if time.Now().Before(deadline) {
+						_ = controller.SetReadDeadline(time.Time{})
+					}
+				}()
+			}
+
+		}
 
 		header := r.Header.Get("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
@@ -69,6 +102,18 @@ func (a *authorizer) middleware(next http.HandlerFunc) http.HandlerFunc {
 			identity.PrincipalID = principal.ID
 		}
 
+		if a.governor != nil {
+			key := identity.PrincipalID
+			if identity.Admin {
+				key = "administrator"
+			}
+			release, ok := a.governor.AdmitUser(key)
+			if !ok {
+				limitedRequest(w)
+				return
+			}
+			defer release()
+		}
 		if !identity.Admin {
 			switch r.Pattern {
 			case "POST /tank", "GET /list":
@@ -123,4 +168,9 @@ func requestFilename(
 		return identity.File.Filename, nil
 	}
 	return store.LoadFilename(r.Context(), id)
+}
+
+func limitedRequest(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", "1")
+	http.Error(w, "request limit reached; retry later", http.StatusTooManyRequests)
 }

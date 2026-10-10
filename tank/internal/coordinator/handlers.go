@@ -1,17 +1,21 @@
 package coordinator
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"tank.local/tank/internal/integrity"
 	"tank.local/tank/internal/metadata"
+	"tank.local/tank/internal/storage"
 )
 
 func NewHandler(service *Service, token string) (http.Handler, error) {
@@ -25,7 +29,7 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		w.Write([]byte("ok\n"))
 	})
 
-	auth := newAuthorizer(service.store, token).middleware
+	auth := newAuthorizer(service.store, token, service.governor).middleware
 
 	mux.HandleFunc("POST /tank", auth(func(w http.ResponseWriter, r *http.Request) {
 
@@ -49,19 +53,88 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		}
 
 		// The request body is the raw file, not multipart form data.
-		r.Body = http.MaxBytesReader(w, r.Body, MaxFileBytes)
+		if r.ContentLength > service.resourceLimits.MaxFileBytes {
+			http.Error(w, "file exceeds configured upload limit", http.StatusRequestEntityTooLarge)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, service.resourceLimits.MaxFileBytes)
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			var tooLarge *http.MaxBytesError
 			if errors.As(err, &tooLarge) {
-				http.Error(w, "file exceeds 16 MiB", http.StatusRequestEntityTooLarge)
+				http.Error(w, "file exceeds configured upload limit", http.StatusRequestEntityTooLarge)
+			} else if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
+				http.Error(w, "upload read deadline exceeded", http.StatusRequestTimeout)
 			} else {
 				http.Error(w, "cannot read file", http.StatusBadRequest)
 			}
 			return
 		}
 
+		if len(data) == 0 {
+			http.Error(w, "file is empty", http.StatusBadRequest)
+			return
+		}
+		identity, ok := identityFromRequest(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		lease, err := service.store.AcquireUploadLease(r.Context())
+		if errors.Is(err, metadata.ErrUploadBusy) {
+			limitedRequest(w)
+			return
+		}
+		if err != nil {
+			http.Error(w, "storage admission unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := service.store.ReleaseUploadLease(ctx, lease); err != nil {
+				log.Printf("[Tank] upload lease cleanup failed: %v", err)
+			}
+		}()
+		usage, err := service.store.StorageUsage(r.Context(), identity.PrincipalID)
+		if err != nil {
+			http.Error(w, "storage accounting unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		id := integrity.Digest(data).String()
+		globalCharge := int64(len(data))
+		if _, err := service.store.Load(r.Context(), id); err == nil {
+			globalCharge = 0
+		} else if !errors.Is(err, metadata.ErrNotFound) {
+			http.Error(w, "metadata unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		userCharge := int64(len(data))
+		if !identity.Admin {
+			if _, err := service.store.LoadFileAccess(r.Context(), identity.PrincipalID, id); err == nil {
+				userCharge = 0
+			} else if !errors.Is(err, metadata.ErrAccessDenied) && !errors.Is(err, metadata.ErrNotFound) {
+				http.Error(w, "permission accounting unavailable", http.StatusServiceUnavailable)
+				return
+			}
+		}
+		if service.resourceLimits.TotalStorageBytes > 0 && globalCharge > 0 && usage.TotalBytes > service.resourceLimits.TotalStorageBytes-globalCharge {
+			http.Error(w, "total storage quota exceeded", http.StatusInsufficientStorage)
+			return
+		}
+		if !identity.Admin && service.resourceLimits.UserStorageBytes > 0 && userCharge > 0 && usage.UserBytes > service.resourceLimits.UserStorageBytes-userCharge {
+			http.Error(w, "user storage quota exceeded", http.StatusInsufficientStorage)
+			return
+		}
 		m, err := service.Tank(r.Context(), data)
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "storage request deadline exceeded", http.StatusGatewayTimeout)
+			return
+		}
+		if errors.Is(err, storage.ErrQuotaExceeded) {
+			http.Error(w, "node storage capacity exceeded", http.StatusInsufficientStorage)
+			return
+		}
 		if errors.Is(err, ErrInvalidFile) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -69,12 +142,6 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 		if err != nil {
 			log.Printf("[Tank] tank failed: %v", err)
 			http.Error(w, "could not store file", http.StatusServiceUnavailable)
-			return
-		}
-
-		identity, ok := identityFromRequest(r)
-		if !ok {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 

@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
@@ -9,13 +10,30 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"tank.local/tank/internal/encoding"
 	"tank.local/tank/internal/integrity"
+	"tank.local/tank/internal/limits"
 	"tank.local/tank/internal/storage"
 )
 
 func NewHandler(backend storage.Backend, token string) (http.Handler, error) {
+	return NewHandlerWithLimits(backend, token, limits.Default())
+}
+
+func NewHandlerWithLimits(backend storage.Backend, token string, bounds limits.Config) (http.Handler, error) {
+	if backend == nil {
+		return nil, fmt.Errorf("storage backend is required")
+	}
+	bounds.MaxConcurrent = bounds.NodeConcurrent
+	bounds.MaxPerUser = bounds.NodeConcurrent
+	bounds.RequestsPerMinute = 0
+	governor, err := limits.New(bounds)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(token) < 32 {
 		return nil, fmt.Errorf("node token must contain at least 32 characters")
 	}
@@ -30,6 +48,30 @@ func NewHandler(backend storage.Backend, token string) (http.Handler, error) {
 
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			release, ok := governor.Admit("node")
+			if !ok {
+				w.Header().Set("Retry-After", "1")
+				http.Error(w, "node request limit reached", http.StatusTooManyRequests)
+				return
+			}
+			defer release()
+			ctx, cancel := context.WithTimeout(r.Context(), governor.Timeout())
+			defer cancel()
+			r = r.WithContext(ctx)
+			// Interrupt slow body reads at the configured deadline (capped at 30s).
+			controller := http.NewResponseController(w)
+			deadline := time.Now().Add(30 * time.Second)
+			if requestDeadline, ok := ctx.Deadline(); ok && requestDeadline.Before(deadline) {
+				deadline = requestDeadline
+			}
+			if err := controller.SetReadDeadline(deadline); err == nil {
+				defer func() {
+					if time.Now().Before(deadline) {
+						_ = controller.SetReadDeadline(time.Time{})
+					}
+				}()
+			}
+
 			header := r.Header.Get("Authorization")
 			if !strings.HasPrefix(header, "Bearer ") {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -82,6 +124,10 @@ func NewHandler(backend storage.Backend, token string) (http.Handler, error) {
 			}
 
 			if err := backend.Put(r.Context(), key, data, expected); err != nil {
+				if errors.Is(err, storage.ErrQuotaExceeded) {
+					http.Error(w, "node storage quota exceeded", http.StatusInsufficientStorage)
+					return
+				}
 				http.Error(w, "storage failed", http.StatusInternalServerError)
 				return
 			}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"tank.local/tank/internal/config"
+	"tank.local/tank/internal/limits"
 	"tank.local/tank/internal/node"
 	"tank.local/tank/internal/storage"
 )
@@ -21,13 +22,13 @@ func run() error {
 		return err
 	}
 
-	backend, err := storage.NewFilesystem(cfg.NodeDataDir)
+	backend, err := storage.NewFilesystemWithQuota(cfg.NodeDataDir, cfg.Limits.NodeStorageBytes, cfg.Limits.NodeFileLimit)
 	if err != nil {
 		return err
 	}
 	defer backend.Close()
 
-	handler, err := node.NewHandler(backend, os.Getenv("TANK_NODE_TOKEN"))
+	handler, err := node.NewHandlerWithLimits(backend, os.Getenv("TANK_NODE_TOKEN"), cfg.Limits)
 	if err != nil {
 		return err
 	}
@@ -36,11 +37,17 @@ func run() error {
 		Addr:              cfg.NodeAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		ReadTimeout:       min(30*time.Second, cfg.Limits.RequestTimeout),
+		WriteTimeout:      cfg.Limits.RequestTimeout + 5*time.Second,
 		IdleTimeout:       60 * time.Second,
-		MaxHeaderBytes:    16 << 10,
+		MaxHeaderBytes:    cfg.Limits.MaxHeaderBytes,
 	}
+
+	listener, err := limits.Listen(cfg.NodeAddr, cfg.Limits.NodeConnections)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
 
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -52,7 +59,7 @@ func run() error {
 	result := make(chan error, 1)
 	go func() {
 		log.Printf("[Tank] storage node listening on %s", cfg.NodeAddr)
-		result <- server.ListenAndServe()
+		result <- server.Serve(listener)
 	}()
 
 	select {

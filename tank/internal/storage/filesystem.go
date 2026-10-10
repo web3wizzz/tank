@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"tank.local/tank/internal/encoding"
 	"tank.local/tank/internal/integrity"
@@ -17,12 +18,39 @@ const MaxShardBytes = (encoding.MaxBytes + encoding.DataShards - 1) /
 	encoding.DataShards
 
 type Filesystem struct {
-	root *os.Root
+	mu         sync.Mutex
+	quotaBytes int64
+	quotaFiles int
+	usedFiles  int
+	usedBytes  int64
+	root       *os.Root
 }
 
 var _ Backend = (*Filesystem)(nil)
 
+var ErrQuotaExceeded = errors.New("node storage quota exceeded")
+
 func NewFilesystem(directory string) (*Filesystem, error) {
+	return NewFilesystemWithQuota(directory, 0)
+}
+
+// NewFilesystemWithQuota counts existing flat-directory files without deleting
+// anything. A zero quota disables capacity enforcement. Use one node per directory.
+func NewFilesystemWithQuota(directory string, quotaBytes int64, fileLimits ...int) (*Filesystem, error) {
+	var quotaFiles int
+	if len(fileLimits) > 1 {
+		return nil, fmt.Errorf("expected at most one file-count limit")
+	}
+	if len(fileLimits) == 1 {
+		quotaFiles = fileLimits[0]
+	}
+	if quotaFiles < 0 || quotaFiles > 1_000_000_000 {
+		return nil, fmt.Errorf("invalid node file-count limit")
+	}
+	if quotaBytes < 0 || quotaBytes > 1<<50 {
+		return nil, fmt.Errorf("invalid node storage quota")
+	}
+
 	if directory == "" {
 		return nil, fmt.Errorf("storage directory is required")
 	}
@@ -36,7 +64,34 @@ func NewFilesystem(directory string) (*Filesystem, error) {
 		return nil, err
 	}
 
-	return &Filesystem{root: root}, nil
+	f := &Filesystem{root: root, quotaBytes: quotaBytes, quotaFiles: quotaFiles}
+	entries, err := root.Open(".")
+	if err != nil {
+		root.Close()
+		return nil, err
+	}
+	files, err := entries.ReadDir(-1)
+	entries.Close()
+	if err != nil {
+		root.Close()
+		return nil, err
+	}
+	for _, entry := range files {
+		info, err := root.Lstat(entry.Name())
+		if err != nil {
+			root.Close()
+			return nil, err
+		}
+		if info.Mode().IsRegular() {
+			if info.Size() > 1<<50-f.usedBytes {
+				root.Close()
+				return nil, fmt.Errorf("storage directory accounting exceeds supported capacity")
+			}
+			f.usedBytes += info.Size()
+			f.usedFiles++
+		}
+	}
+	return f, nil
 }
 
 func (f *Filesystem) Close() error {
@@ -90,6 +145,30 @@ func (f *Filesystem) Put(
 		return fmt.Errorf("shard hash mismatch")
 	}
 
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var previousBytes int64
+	replacing := false
+	info, err := f.root.Lstat(name)
+	if err == nil {
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("existing shard must be a regular file")
+		}
+		previousBytes = info.Size()
+		replacing = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if !replacing && f.quotaFiles > 0 && f.usedFiles >= f.quotaFiles {
+		return ErrQuotaExceeded
+	}
+	nextBytes := f.usedBytes - previousBytes + int64(len(data))
+	if f.quotaBytes > 0 && nextBytes > f.quotaBytes {
+		return ErrQuotaExceeded
+	}
 	var random [16]byte
 	if _, err := rand.Read(random[:]); err != nil {
 		return err
@@ -134,6 +213,10 @@ func (f *Filesystem) Put(
 		return err
 	}
 
+	f.usedBytes = nextBytes
+	if !replacing {
+		f.usedFiles++
+	}
 	return f.syncDirectory()
 }
 
@@ -201,6 +284,17 @@ func (f *Filesystem) Delete(
 		return err
 	}
 
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var previousBytes int64
+	removedRegular := false
+	if info, err := f.root.Lstat(name); err == nil && info.Mode().IsRegular() {
+		previousBytes = info.Size()
+		removedRegular = true
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
 	err = f.root.Remove(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -209,6 +303,10 @@ func (f *Filesystem) Delete(
 		return err
 	}
 
+	f.usedBytes -= previousBytes
+	if removedRegular {
+		f.usedFiles--
+	}
 	return f.syncDirectory()
 }
 
