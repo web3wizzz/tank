@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrUnauthorized = errors.New("invalid or expired credential")
-	ErrAccessDenied = errors.New("file access denied")
+	ErrUnauthorized      = errors.New("invalid or expired credential")
+	ErrAccessDenied      = errors.New("file access denied")
+	ErrPrincipalNotFound = errors.New("user not found")
 )
 
 type Principal struct {
@@ -64,23 +65,11 @@ func (s *Store) CreateAccessKey(
 	if err != nil {
 		return empty, "", err
 	}
-	keyID, err := accessRandomHex(16)
+	key, token, err := newAccessKey("usr_" + userID)
 	if err != nil {
 		return empty, "", err
 	}
-	secret, err := accessRandomHex(32)
-	if err != nil {
-		return empty, "", err
-	}
-
-	token := "tank_u_" + secret
 	hash := sha256.Sum256([]byte(token))
-	now := time.Now().UTC()
-	key := AccessKey{
-		ID:          "key_" + keyID,
-		PrincipalID: "usr_" + userID,
-		ExpiresAt:   now.Add(30 * 24 * time.Hour).Truncate(time.Second),
-	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -107,6 +96,101 @@ func (s *Store) CreateAccessKey(
 	}
 
 	return key, token, nil
+}
+
+// CredentialInfo contains administrative metadata, never the raw token or its hash.
+type CredentialInfo struct {
+	AccessKey
+	Revoked bool `json:"revoked"`
+}
+
+func newAccessKey(principalID string) (AccessKey, string, error) {
+	keyID, err := accessRandomHex(16)
+	if err != nil {
+		return AccessKey{}, "", err
+	}
+	secret, err := accessRandomHex(32)
+	if err != nil {
+		return AccessKey{}, "", err
+	}
+	key := AccessKey{
+		ID: "key_" + keyID, PrincipalID: principalID,
+		ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour).Truncate(time.Second),
+	}
+	return key, "tank_u_" + secret, nil
+}
+
+// IssueAccessKey issues a new credential for an existing user, preserving their
+// file permissions. This is a local administrative operation. Existing keys are
+// retained until explicitly revoked, so saving or testing a replacement can fail
+// without locking the user out.
+func (s *Store) IssueAccessKey(ctx context.Context, principalID string) (AccessKey, string, error) {
+	key, token, err := newAccessKey(principalID)
+	if err != nil {
+		return AccessKey{}, "", err
+	}
+	hash := sha256.Sum256([]byte(token))
+	result, err := s.db.ExecContext(ctx, `
+		INSERT INTO api_credentials (id, principal_id, token_hash, expires_at, revoked)
+		SELECT ?, id, ?, ?, 0 FROM principals WHERE id = ?
+	`, key.ID, hex.EncodeToString(hash[:]), key.ExpiresAt.Unix(), principalID)
+	if err != nil {
+		return AccessKey{}, "", err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return AccessKey{}, "", err
+	}
+	if count != 1 {
+		return AccessKey{}, "", ErrPrincipalNotFound
+	}
+	return key, token, nil
+}
+
+func (s *Store) ListPrincipals(ctx context.Context) ([]Principal, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id, label FROM principals ORDER BY id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	users := make([]Principal, 0)
+	for rows.Next() {
+		var user Principal
+		if err := rows.Scan(&user.ID, &user.Label); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
+func (s *Store) ListAccessKeys(ctx context.Context, principalID string) ([]CredentialInfo, error) {
+	var exists bool
+	if err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM principals WHERE id = ?)", principalID).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrPrincipalNotFound
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, principal_id, expires_at, revoked FROM api_credentials
+		WHERE principal_id = ? ORDER BY expires_at, id
+	`, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	keys := make([]CredentialInfo, 0)
+	for rows.Next() {
+		var key CredentialInfo
+		var expires int64
+		if err := rows.Scan(&key.ID, &key.PrincipalID, &expires, &key.Revoked); err != nil {
+			return nil, err
+		}
+		key.ExpiresAt = time.Unix(expires, 0).UTC()
+		keys = append(keys, key)
+	}
+	return keys, rows.Err()
 }
 
 func (s *Store) AuthenticateAccessKey(

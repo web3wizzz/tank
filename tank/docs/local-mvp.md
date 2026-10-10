@@ -77,7 +77,8 @@ The test verifies:
 - Reloaded sessions, missing/wrong recovery key rejection, correct PDF bytes,
   original download filename, and logout.
 - Credential revocation rejects an active session's next request and subsequent
-  sign-in attempts.
+  sign-in attempts. A replacement credential signs in as the original user and
+  restores their already-stored encrypted PDF with its original recovery key.
 
 It uses a separate temporary database and storage directories, prints no
 credentials or recovery keys, and removes its own processes and files at exit.
@@ -89,8 +90,11 @@ cover that subsystem separately.
 ## Remaining scope
 
 This completes a locally testable MVP, not a production durability guarantee.
+Administrative credential renewal preserves user identity and file permissions;
+see the [credential guide](user-credentials.md).
+
 Public-chain signing, payments, storage proofs, independent operators, larger
-file streaming, user credential rotation, and release publication remain future
+file streaming, self-service account management, and release publication remain future
 work. Browser encryption is not applied automatically to CLI/SDK uploads.
 Losing a recovery key prevents browser decryption. Back up private keys and the
 original files during evaluation.

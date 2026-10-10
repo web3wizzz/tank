@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,6 +25,17 @@ func saveCredential(
 	ctx context.Context,
 	store *metadata.Store,
 	label, output string,
+) (key metadata.AccessKey, err error) {
+	return saveIssuedCredential(ctx, store, output, func(ctx context.Context) (metadata.AccessKey, string, error) {
+		return store.CreateAccessKey(ctx, label)
+	})
+}
+
+func saveIssuedCredential(
+	ctx context.Context,
+	store *metadata.Store,
+	output string,
+	issue func(context.Context) (metadata.AccessKey, string, error),
 ) (key metadata.AccessKey, err error) {
 	if output == "" {
 		return key, errors.New("--out is required")
@@ -59,7 +71,7 @@ func saveCredential(
 	}()
 
 	var token string
-	key, token, err = store.CreateAccessKey(ctx, label)
+	key, token, err = issue(ctx)
 	if err != nil {
 		return key, err
 	}
@@ -86,22 +98,33 @@ func saveCredential(
 }
 
 func run(args []string) error {
+	return runWithOutput(args, os.Stdout)
+}
+
+func runWithOutput(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: tank-access create|revoke [flags]")
+		return errors.New("usage: tank-access create|issue|users|keys|revoke [flags]")
 	}
 
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	database := flags.String("db", defaultDatabase(), "SQLite database path")
 
-	var label, output, keyID *string
+	var label, output, keyID, userID *string
 	switch args[0] {
 	case "create":
 		label = flags.String("label", "", "User label")
 		output = flags.String("out", "", "Private credential file; must not exist")
+	case "issue":
+		userID = flags.String("user-id", "", "Existing user ID; file permissions are preserved")
+		output = flags.String("out", "", "New private credential file; must not exist")
+	case "users":
+		// Local administrative listing; no credential material is returned.
+	case "keys":
+		userID = flags.String("user-id", "", "Existing user ID")
 	case "revoke":
 		keyID = flags.String("key-id", "", "Credential ID to revoke")
 	default:
-		return errors.New("expected create or revoke")
+		return errors.New("expected create, issue, users, keys, or revoke")
 	}
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
@@ -111,6 +134,12 @@ func run(args []string) error {
 	}
 	if args[0] == "create" && (*label == "" || *output == "") {
 		return errors.New("create requires --label and --out")
+	}
+	if args[0] == "issue" && (*userID == "" || *output == "") {
+		return errors.New("issue requires --user-id and --out")
+	}
+	if args[0] == "keys" && *userID == "" {
+		return errors.New("keys requires --user-id")
 	}
 	if args[0] == "revoke" && *keyID == "" {
 		return errors.New("revoke requires --key-id")
@@ -126,19 +155,39 @@ func run(args []string) error {
 	defer store.Close()
 
 	switch args[0] {
-	case "create":
-		key, err := saveCredential(ctx, store, *label, *output)
+	case "create", "issue":
+		var key metadata.AccessKey
+		var err error
+		if args[0] == "create" {
+			key, err = saveCredential(ctx, store, *label, *output)
+		} else {
+			key, err = saveIssuedCredential(ctx, store, *output, func(ctx context.Context) (metadata.AccessKey, string, error) {
+				return store.IssueAccessKey(ctx, *userID)
+			})
+		}
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Credential saved: %s\n", *output)
-		fmt.Printf("User: %s\nCredential ID: %s\nExpires: %s\n",
+		fmt.Fprintf(out, "Credential saved: %s\n", *output)
+		fmt.Fprintf(out, "User: %s\nCredential ID: %s\nExpires: %s\n",
 			key.PrincipalID, key.ID, key.ExpiresAt.Format(time.RFC3339))
+	case "users":
+		users, err := store.ListPrincipals(ctx)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(out).Encode(users)
+	case "keys":
+		keys, err := store.ListAccessKeys(ctx, *userID)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(out).Encode(keys)
 	case "revoke":
 		if err := store.RevokeAccessKey(ctx, *keyID); err != nil {
 			return err
 		}
-		fmt.Printf("Credential revoked: %s\n", *keyID)
+		fmt.Fprintf(out, "Credential revoked: %s\n", *keyID)
 	}
 	return nil
 }

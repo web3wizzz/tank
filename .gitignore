@@ -152,3 +152,6 @@ bin/
 *.before-cyan
 *.before-sdk
 /tank/frontend-before-setup-*/
+*.tank-key.json
+*-credential.json
+*.credential.json

@@ -119,6 +119,7 @@ try {
       TANK_E2E_OTHER_CREDENTIAL_FILE: bob,
       TANK_E2E_UPSTREAM_URL: `http://127.0.0.1:${frontendPort}`,
       TANK_E2E_ACCESS_TOOL: join(directory, "bin", "access"),
+      TANK_E2E_REPLACEMENT_FILE: join(directory, "alice-replacement.json"),
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
   });

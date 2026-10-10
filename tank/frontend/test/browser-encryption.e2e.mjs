@@ -280,6 +280,30 @@ try {
     await page.getByRole("button", { name: "Open my workspace" }).click();
     assert.equal((await revoked).status(), 401);
     console.log("PASS: revocation invalidates an existing browser session and prevents new sign-in.");
+    if (process.env.TANK_E2E_REPLACEMENT_FILE) {
+      await promisify(execFile)(process.env.TANK_E2E_ACCESS_TOOL, [
+        "issue", "--db", process.env.TANK_DATABASE_PATH,
+        "--user-id", credential.principal_id, "--out", process.env.TANK_E2E_REPLACEMENT_FILE,
+      ]);
+      const replacement = await readCredential(process.env.TANK_E2E_REPLACEMENT_FILE);
+      assert.equal(replacement.principal_id, credential.principal_id);
+      await fillCredential(page, replacement.token);
+      await page.getByRole("button", { name: "Open my workspace" }).click();
+      await page.getByText("Storage connected", { exact: true }).waitFor();
+      await page.getByLabel("Recovery key file").setInputFiles({
+        name: keyDownload.suggestedFilename(), mimeType: "application/json", buffer: recovery,
+      });
+      const renewedDownload = page.waitForEvent("download");
+      await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
+      const renewed = await renewedDownload;
+      assert.equal(renewed.suggestedFilename(), filename);
+      const renewedChunks = [];
+      for await (const chunk of await renewed.createReadStream()) renewedChunks.push(chunk);
+      assert.ok(Buffer.concat(renewedChunks).equals(original), "Replacement credential must preserve existing encrypted file access.");
+      console.log("PASS: replacement credential signs in as the same user and restores their existing encrypted PDF.");
+      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+      await page.getByLabel("Access credential").waitFor();
+    }
   }
   console.log(upstream
     ? "Transport: local reverse-proxy simulation at the configured HTTPS browser origin."
