@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  encryptFile, decryptFile, isEncrypted, parseRecovery, MAX_PLAIN_BYTES,
+  type Recovery,
+} from "@/lib/file-crypto";
 
 const MAX_BYTES = 16 * 1024 * 1024;
 const ID_PATTERN = /^[a-f0-9]{64}$/;
@@ -15,6 +19,7 @@ type Registration = {
 async function api(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set("X-Tank-Workspace", "1");
+  headers.set("X-Tank-Origin", window.location.origin);
 
   const response = await fetch(`/api/tank/${path}`, {
     ...init,
@@ -25,6 +30,9 @@ async function api(path: string, init: RequestInit = {}) {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.dispatchEvent(new Event("tank:session-expired"));
+    }
     const result = await response.json().catch(() => null);
     throw new Error(result?.error ?? `Request failed (${response.status}).`);
   }
@@ -73,7 +81,22 @@ async function readDownload(response: Response): Promise<ArrayBuffer> {
   return bytes.buffer;
 }
 
+function download(bytes: ArrayBuffer, filename: string) {
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 export default function Workspace() {
+  const [prepared, setPrepared] = useState<Awaited<ReturnType<typeof encryptFile>> | null>(null);
+  const [recovery, setRecovery] = useState<Recovery | null>(null);
+  const [keyDownloaded, setKeyDownloaded] = useState(false);
+  const [keySaved, setKeySaved] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileID, setFileID] = useState("");
   const [ids, setIDs] = useState<string[]>([]);
@@ -112,10 +135,13 @@ export default function Workspace() {
     setError("");
     setMessage("");
     setFile(null);
+    setPrepared(null);
+    setKeyDownloaded(false);
+    setKeySaved(false);
 
     if (!selected) return;
-    if (selected.size < 1 || selected.size > MAX_BYTES) {
-      setError("Choose a file between 1 byte and 16 MiB.");
+    if (selected.size < 1 || selected.size > MAX_PLAIN_BYTES) {
+      setError("Choose a file between 1 byte and 16 MiB minus 4.1 KiB for encryption overhead.");
       return;
     }
 
@@ -152,33 +178,61 @@ export default function Workspace() {
     });
   }
 
+  function downloadRecovery() {
+    if (!prepared) return;
+    const bytes = new TextEncoder().encode(JSON.stringify(prepared.recovery, null, 2)).buffer;
+    download(bytes, `${prepared.fileID}.tank-key.json`);
+    setKeyDownloaded(true);
+    setMessage("Check your downloads and keep the recovery key somewhere private.");
+  }
+
+  async function loadRecovery(selected: File | null) {
+    if (!selected) return;
+    setRecovery(null);
+    setError("");
+    try {
+      if (selected.size > 2048) throw new Error("Recovery file exceeds 2 KiB.");
+      const key = parseRecovery(await selected.text());
+      setRecovery(key);
+      setFileID(key.file_id);
+      setRegistration(null);
+      setMessage("Recovery key loaded in this tab. It will not be sent to storage.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Invalid recovery file.");
+    }
+  }
+
   async function tankFile() {
     if (!file) return;
-
     await run("tank", async () => {
-      const bytes = await file.arrayBuffer();
-      const expectedID = await digest(bytes);
+      if (!prepared) {
+        const result = await encryptFile(await file.arrayBuffer(), file.name);
+        setPrepared(result);
+        setKeyDownloaded(false);
+        setKeySaved(false);
+        setMessage("Encrypted in your browser. Save the recovery key before tanking.");
+        return;
+      }
+      if (!keyDownloaded || !keySaved) throw new Error("Save your recovery key first.");
       const response = await api("files", {
         method: "POST",
         headers: {
           "Content-Type": "application/octet-stream",
-          "X-Tank-Filename": encodeURIComponent(file.name),
+          "X-Tank-Filename": `${prepared.fileID}.tankenc`,
         },
-        body: bytes,
+        body: prepared.bytes,
       });
       const result = await response.json();
-
-      if (result.file_id !== expectedID || result.size !== bytes.byteLength) {
-        throw new Error("The tanking response did not match your file.");
+      if (result.file_id !== prepared.fileID || result.size !== prepared.bytes.byteLength) {
+        throw new Error("The tanking response did not match your encrypted file.");
       }
-
+      setRecovery(prepared.recovery);
       setFileID(result.file_id);
       setRegistration(null);
-      setIDs((previous) =>
-        [result.file_id, ...previous.filter((id) => id !== result.file_id)]
-          .slice(0, 100),
-      );
-      setMessage("File tanked. Your verified file ID is ready below.");
+      setIDs((previous) => [result.file_id, ...previous.filter((id) => id !== result.file_id)].slice(0, 100));
+      setPrepared(null);
+      setFile(null);
+      setMessage("Encrypted file tanked. Keep its recovery key to retrieve it later.");
     });
   }
 
@@ -198,21 +252,19 @@ export default function Workspace() {
         throw new Error("Integrity verification failed. Download blocked.");
       }
 
-      const url = URL.createObjectURL(
-        new Blob([bytes], { type: "application/octet-stream" }),
-      );
-      const link = document.createElement("a");
-      link.href = url;
       const encodedName = response.headers.get("X-Tank-Filename");
-      link.download = encodedName
-        ? decodeURIComponent(encodedName)
-        : `${id}.bin`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-
-      setMessage("Verified file downloaded with its saved filename.");
+      const storedName = encodedName ? decodeURIComponent(encodedName) : `${id}.bin`;
+      if (isEncrypted(bytes) || storedName.endsWith(".tankenc")) {
+        if (!recovery || recovery.file_id !== id) {
+          throw new Error("Choose the recovery key for this file first.");
+        }
+        const restored = await decryptFile(bytes, recovery);
+        download(restored.bytes, restored.filename);
+        setMessage("File verified, decrypted in your browser, and downloaded.");
+      } else {
+        download(bytes, storedName);
+        setMessage("Legacy unencrypted file verified and downloaded.");
+      }
     });
   }
 
@@ -326,19 +378,34 @@ export default function Workspace() {
                 ? `${(file.size / 1024).toFixed(1)} KiB · Ready to tank`
                 : "or click to browse your files"}
             </span>
-            <small>Any file type · Up to 16 MiB</small>
+            <small>Any file type · 16 MiB minus 4.1 KiB encryption overhead</small>
           </label>
+
+          {prepared && (
+            <div className="encryption-controls">
+              <button type="button" className="button secondary full-width"
+                disabled={Boolean(busy)} onClick={downloadRecovery}>
+                Download recovery key
+              </button>
+              <label>
+                <input type="checkbox" checked={keySaved}
+                  disabled={!keyDownloaded || Boolean(busy)}
+                  onChange={(event) => setKeySaved(event.target.checked)} />
+                {" "}I saved the recovery key in a private place.
+              </label>
+            </div>
+          )}
 
           <button
             className="button primary full-width"
-            disabled={disabled || !file}
+            disabled={disabled || !file || Boolean(prepared && !keySaved)}
             onClick={() => void tankFile()}
           >
-            {busy === "tank" ? "Tanking…" : "Tank it"}
+            {busy === "tank" ? "Working…" : prepared ? "Tank encrypted file" : "Encrypt file"}
             <span aria-hidden="true">↗</span>
           </button>
           <p className="panel-note">
-            Keep another copy while evaluating the local MVP.
+            Your file and filename are encrypted before tanking. Losing the recovery key means losing access. Keep another copy during the MVP.
           </p>
         </article>
 
@@ -374,6 +441,19 @@ export default function Workspace() {
           >
             Copy file ID
           </button>
+
+          <div className="encryption-controls">
+            <label className="input-label" htmlFor="recovery-key">Recovery key file</label>
+            <input id="recovery-key" type="file" accept=".json"
+              disabled={Boolean(busy)}
+              onChange={(event) => {
+                void loadRecovery(event.target.files?.[0] ?? null);
+                event.target.value = "";
+              }} />
+            <p className="panel-note">
+              {recovery ? `Key loaded for ${recovery.file_id.slice(0, 12)}…` : "Choose your .tank-key.json file to decrypt an encrypted file."}
+            </p>
+          </div>
 
           <div className="verification-note">
             <span aria-hidden="true">◇</span>
@@ -416,7 +496,7 @@ export default function Workspace() {
         <div className="panel-heading">
           <div>
             <h3>Stored files</h3>
-            <p>Files in this coordinator. Select an ID to retrieve it.</p>
+            <p>Your files. Encrypted files need their matching recovery key.</p>
           </div>
           <span className="small-label">FIRST PAGE · UP TO 100 FILES</span>
         </div>

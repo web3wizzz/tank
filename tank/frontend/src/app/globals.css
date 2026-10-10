@@ -282,3 +282,9 @@ h2 { margin-top: 12px; font-size: clamp(28px, 3.5vw, 38px); line-height: 1.15; l
 }
 .file-id-button:hover { color: var(--accent); }
 .file-id-button code { font-size: 11px; overflow-wrap: anywhere; }
+
+/* Tank browser encryption controls */
+.encryption-controls { display: grid; gap: 12px; margin: 16px 0; }
+.encryption-controls label { font-size: 13px; line-height: 1.6; }
+.encryption-controls input[type="checkbox"] { accent-color: #22d3ee; }
+.encryption-controls input[type="file"] { width: 100%; max-width: 100%; font-size: 12px; }

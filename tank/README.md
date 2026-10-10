@@ -13,7 +13,10 @@ Status: early development prototype.
 - Authenticated storage nodes and coordinator API
 - Retrieval after one storage node fails
 - Manual and automatic repair to a replacement node
-- CLI with verified downloads
+- CLI and Go/TypeScript SDKs with verified downloads
+- Per-user credentials, ownership-scoped lists, and revocable sessions
+- Browser encryption and recovery with the original filename
+- Optional local on-chain registration with background retries
 
 ## Requirements
 
@@ -63,8 +66,13 @@ Automatic repair requires enough surviving shards and an unused
 configured replacement node. New files currently require all three
 initial storage nodes to accept their assigned shards.
 
-Encryption, signed receipts, blockchain registration, payments, and
-production hardening are planned. Permanent retention is not guaranteed.
+Browser encryption, individual user authorization, and local blockchain registration
+are implemented. CLI/SDK uploads remain unencrypted by default. Signed receipts,
+payments, public-chain signing, and production durability remain planned. Permanent
+retention is not guaranteed.
+
+See the [repository README](../README.md) for browser setup and
+[local MVP guide](docs/local-mvp.md) for isolated integration checks.
 
 ## License
 

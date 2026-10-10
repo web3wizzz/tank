@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:browser": "node test/browser-encryption.e2e.mjs",
+    "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "test:integration": "node test/local-stack.e2e.mjs"
   },
   "dependencies": {
     "@tank-storage/sdk": "file:../sdk-ts",
@@ -22,6 +25,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "playwright": "^1.64.0",
     "typescript": "^5"
   }
 }

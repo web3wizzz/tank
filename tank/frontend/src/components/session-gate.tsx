@@ -15,7 +15,7 @@ export default function SessionGate({ children }: { children: ReactNode }) {
     async function check() {
       try {
         const response = await fetch("/api/auth/session", {
-          headers: { "X-Tank-Workspace": "1" },
+          headers: { "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin },
           cache: "no-store",
           signal: AbortSignal.any([
             controller.signal,
@@ -67,6 +67,7 @@ export default function SessionGate({ children }: { children: ReactNode }) {
         headers: {
           "Content-Type": "application/json",
           "X-Tank-Workspace": "1",
+          "X-Tank-Origin": window.location.origin,
         },
         body: JSON.stringify({ token: token.trim() }),
         signal: AbortSignal.timeout(15_000),
@@ -91,7 +92,7 @@ export default function SessionGate({ children }: { children: ReactNode }) {
     try {
       const response = await fetch("/api/auth/logout", {
         method: "POST",
-        headers: { "X-Tank-Workspace": "1" },
+        headers: { "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin },
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error("Sign-out failed.");

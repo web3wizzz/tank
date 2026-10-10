@@ -3,14 +3,10 @@ import "server-only";
 import { cookies } from "next/headers";
 import { Tank } from "@tank-storage/sdk";
 import { openSession } from "./session-crypto";
+import { SessionError } from "./workspace-request";
+export { SessionError, requireWorkspaceRequest, secureCookie } from "./workspace-request";
 
 export const SESSION_COOKIE = "tank_session";
-
-export class SessionError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
 
 export function sessionKey(): Uint8Array {
   const secret = process.env.TANK_SESSION_SECRET;
@@ -18,50 +14,6 @@ export function sessionKey(): Uint8Array {
     throw new SessionError(503, "Session configuration is missing.");
   }
   return new Uint8Array(Buffer.from(secret, "hex"));
-}
-
-export function requireWorkspaceRequest(request: Request) {
-  if (
-    request.headers.get("X-Tank-Workspace") !== "1" ||
-    request.headers.get("sec-fetch-site") === "cross-site"
-  ) {
-    throw new SessionError(403, "Request not permitted.");
-  }
-
-  const origin = request.headers.get("origin");
-  if (request.method !== "GET" && !origin) {
-    throw new SessionError(403, "Request origin is required.");
-  }
-
-  if (origin) {
-    const host = (
-      request.headers.get("x-forwarded-host") ??
-      request.headers.get("host") ??
-      new URL(request.url).host
-    ).split(",")[0].trim();
-
-    let parsed: URL;
-    try {
-      parsed = new URL(origin);
-    } catch {
-      throw new SessionError(403, "Invalid request origin.");
-    }
-
-    if (
-      !["http:", "https:"].includes(parsed.protocol) ||
-      parsed.host !== host
-    ) {
-      throw new SessionError(403, "Request origin not permitted.");
-    }
-  }
-}
-
-export function secureCookie(request: Request): boolean {
-  return (
-    new URL(request.url).protocol === "https:" ||
-    request.headers.get("x-forwarded-proto")?.split(",")[0].trim() === "https" ||
-    request.headers.get("origin")?.startsWith("https://") === true
-  );
 }
 
 export async function sessionClient(): Promise<Tank> {

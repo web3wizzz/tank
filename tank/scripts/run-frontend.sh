@@ -3,17 +3,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if [[ ! -f .env.tank-local ]]; then
-  echo "Missing .env.tank-local. Start scripts/run-local.sh first."
-  exit 1
-fi
+source scripts/init-local-env.sh
 
-set -a
-source .env.tank-local
-set +a
-
-: "${TANK_API_TOKEN:?TANK_API_TOKEN is missing}"
+: "${TANK_SESSION_SECRET:?TANK_SESSION_SECRET is missing}"
 export TANK_API_URL="${TANK_API_URL:-http://127.0.0.1:8080}"
 
+unset TANK_API_TOKEN TANK_NODE_TOKEN
 cd frontend
 exec npm run start -- --hostname 0.0.0.0

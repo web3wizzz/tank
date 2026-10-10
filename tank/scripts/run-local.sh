@@ -5,16 +5,7 @@ cd "$(dirname "$0")/.."
 mkdir -p bin data/local-demo
 umask 077
 
-if [[ ! -f .env.tank-local ]]; then
-  {
-    printf 'TANK_NODE_TOKEN=%s\n' "$(openssl rand -hex 32)"
-    printf 'TANK_API_TOKEN=%s\n' "$(openssl rand -hex 32)"
-  } > .env.tank-local
-fi
-
-set -a
-source .env.tank-local
-set +a
+source scripts/init-local-env.sh
 
 export TANK_COORDINATOR_ADDR="127.0.0.1:8080"
 export TANK_DATABASE_PATH="data/local-demo/tank.sqlite"

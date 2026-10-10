@@ -1,3 +1,4 @@
+import SessionGate from "@/components/session-gate";
 import Link from "next/link";
 import Workspace from "@/components/workspace";
 
@@ -206,7 +207,7 @@ const registration =
         </div>
       </section>
 
-      <Workspace />
+      <SessionGate><Workspace /></SessionGate>
 
       <section className="faq-section section-block" id="faq">
         <div>

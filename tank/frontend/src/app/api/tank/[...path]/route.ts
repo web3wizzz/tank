@@ -1,4 +1,9 @@
-import { Tank, IntegrityError } from "@tank-storage/sdk";
+import { APIError, IntegrityError } from "@tank-storage/sdk";
+import {
+  SessionError,
+  requireWorkspaceRequest,
+  sessionClient,
+} from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +35,7 @@ function json(value: unknown, status = 200) {
 }
 
 function checkRequest(request: Request) {
+  requireWorkspaceRequest(request);
   if (
     request.headers.get("x-tank-workspace") !== "1" ||
     request.headers.get("sec-fetch-site") === "cross-site"
@@ -38,21 +44,8 @@ function checkRequest(request: Request) {
   }
 }
 
-function client() {
-  const token = process.env.TANK_API_TOKEN;
-
-  if (!token) {
-    throw new RequestError(
-      503,
-      "Storage is not configured. Start the frontend with its launcher.",
-    );
-  }
-
-  return new Tank({
-    baseURL: process.env.TANK_API_URL ?? "http://127.0.0.1:8080",
-    token,
-    timeoutMs: 120_000,
-  });
+async function client() {
+  return sessionClient();
 }
 
 function validateID(id: string | undefined): string {
@@ -63,6 +56,16 @@ function validateID(id: string | undefined): string {
 }
 
 function failure(error: unknown) {
+  if (error instanceof SessionError) {
+    return json({ error: error.message }, error.status);
+  }
+  if (error instanceof APIError && error.statusCode === 401) {
+    return json({ error: "Sign in again. Your credential is invalid or expired." }, 401);
+  }
+  if (error instanceof APIError && error.statusCode === 403) {
+    return json({ error: "Access not permitted." }, 403);
+  }
+
   if (error instanceof RequestError) {
     return json({ error: error.message }, error.status);
   }
@@ -154,16 +157,16 @@ export async function GET(request: Request, context: Context) {
     const { path } = await context.params;
 
     if (path.length === 1 && path[0] === "health") {
-      await client().health();
+      await (await client()).list("", { signal: request.signal });
       return json({ connected: true });
     }
 
     if (path.length === 1 && path[0] === "files") {
-      return json({ file_ids: await client().list() });
+      return json({ file_ids: await (await client()).list() });
     }
 
     if (path.length === 2 && path[0] === "registrations") {
-      const result = await client().registrationStatus(validateID(path[1]));
+      const result = await (await client()).registrationStatus(validateID(path[1]));
 
       return json({
         file_id: result.file_id,
@@ -175,7 +178,7 @@ export async function GET(request: Request, context: Context) {
 
     if (path.length === 2 && path[0] === "files") {
       const id = validateID(path[1]);
-      const sdk = client();
+      const sdk = await client();
       const info = await sdk.fileInfo(id, { signal: request.signal });
       const bytes = await sdk.retrieve(id, { signal: request.signal });
 
@@ -230,7 +233,7 @@ export async function POST(request: Request, context: Context) {
       }
     }
 
-    const manifest = await client().tank(bytes, {
+    const manifest = await (await client()).tank(bytes, {
       signal: request.signal,
       ...(filename === undefined ? {} : { filename }),
     });
