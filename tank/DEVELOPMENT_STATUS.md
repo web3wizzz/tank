@@ -161,7 +161,7 @@ credentials, network-specific registration display, and public-chain signing.
 The local unlocked Anvil client must not be repurposed for public RPC merely by
 removing its restrictions.
 
-### Current milestone: private metadata backup/restore
+### Completed milestone: private metadata backup/restore — `0a0c8d4`
 
 - Added online SQLite snapshots and `tank-backup`, with integrity/foreign-key
   verification, mode-0600 output, atomic no-overwrite publication, source schema
@@ -170,7 +170,7 @@ removing its restrictions.
   filenames, manifests, durable jobs, cross-user isolation, destination refusal,
   cancellation, and snapshot independence. Full Go race tests/vet/build passed.
 - Fixed SQLite path URI encoding so snapshots containing query punctuation
-  reopen as the intended file; regression verified. Publication/Actions pending.
+  reopen as the intended file; regression verified. All four Actions passed.
 - Added backup/restore guide, including revocation reconciliation and separate
   node-shard/user-key custody.
 
@@ -184,3 +184,18 @@ removing its restrictions.
 - Next: authenticated operational monitoring; remote-node TLS/credential setup;
   deployment templates/operator retention promise; reproducible local failure,
   restart/backup restore acceptance; offline Base Sepolia preparation scripts.
+
+
+### Current milestone: authenticated operational status
+
+- Added administrator-only coordinator and node-credential-only storage reports.
+  Aggregates expose logical/physical capacity, repair/registration backlog, and
+  last audit execution, with bounded parallel node probes and no private labels.
+- Liveness remains separate; reports indicate degraded dependencies and upload
+  readiness without promising every stored file is available.
+- Go race tests for metadata/storage/nodes/coordinator, vet/build, and diff checks
+  passed. Regression tests cover role isolation, exhausted quotas, closed
+  backends/database, stalled probes, and malformed capacity responses.
+- Added monitoring guide. Publication/Actions pending.
+- Next: TLS and per-node credentials, deployment templates, and failure/restore
+  browser integration; Base Sepolia scripts remain preparation-only.

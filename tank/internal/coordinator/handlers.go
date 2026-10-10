@@ -30,6 +30,7 @@ func NewHandler(service *Service, token string) (http.Handler, error) {
 	})
 
 	auth := newAuthorizer(service.store, token, service.governor).middleware
+	mux.HandleFunc("GET /ops/status", auth(service.operationsHandler))
 
 	mux.HandleFunc("POST /tank", auth(func(w http.ResponseWriter, r *http.Request) {
 

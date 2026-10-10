@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -48,6 +49,8 @@ func NewHandlerWithLimits(backend storage.Backend, token string, bounds limits.C
 
 	auth := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
 			release, ok := governor.Admit("node")
 			if !ok {
 				w.Header().Set("Retry-After", "1")
@@ -87,6 +90,23 @@ func NewHandlerWithLimits(backend storage.Backend, token string, bounds limits.C
 			next(w, r)
 		}
 	}
+
+	mux.HandleFunc("GET /ops/status", auth(func(w http.ResponseWriter, r *http.Request) {
+		reporter, ok := backend.(interface {
+			Status(context.Context) (storage.Status, error)
+		})
+		if !ok {
+			http.Error(w, "node status unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		status, err := reporter.Status(r.Context())
+		if err != nil {
+			http.Error(w, "node status unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(status)
+	}))
 
 	mux.HandleFunc("PUT /shards/{file}/{segment}/{index}", auth(
 		func(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"tank.local/tank/internal/encoding"
@@ -23,6 +24,7 @@ var (
 )
 
 type Service struct {
+	auditStatus    atomic.Pointer[AuditStatus]
 	resourceLimits limits.Config
 	governor       *limits.Governor
 	store          *metadata.Store

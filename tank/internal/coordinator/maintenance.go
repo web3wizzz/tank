@@ -60,7 +60,14 @@ func (s *Service) AuditFile(ctx context.Context, id string) (bool, error) {
 
 // AuditOnce checks stored files and queues unhealthy ones.
 // The worker checks them again before repairing.
-func (s *Service) AuditOnce(ctx context.Context) error {
+func (s *Service) AuditOnce(ctx context.Context) (result error) {
+	defer func() {
+		state := "completed"
+		if result != nil {
+			state = "failed"
+		}
+		s.auditStatus.Store(&AuditStatus{State: state, CompletedAt: time.Now().UTC()})
+	}()
 	after := ""
 
 	for {
