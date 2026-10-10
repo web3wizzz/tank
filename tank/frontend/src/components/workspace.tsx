@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   encryptFile, decryptFile, isEncrypted, parseRecovery, MAX_PLAIN_BYTES,
   type Recovery,
@@ -26,7 +26,9 @@ async function api(path: string, init: RequestInit = {}) {
     headers,
     cache: "no-store",
     redirect: "error",
-    signal: init.signal ?? AbortSignal.timeout(150_000),
+    signal: init.signal
+      ? AbortSignal.any([init.signal, AbortSignal.timeout(150_000)])
+      : AbortSignal.timeout(150_000),
   });
 
   if (!response.ok) {
@@ -93,6 +95,7 @@ function download(bytes: ArrayBuffer, filename: string) {
 }
 
 export default function Workspace() {
+  const lifetime = useRef<AbortController | null>(null);
   const [prepared, setPrepared] = useState<Awaited<ReturnType<typeof encryptFile>> | null>(null);
   const [recovery, setRecovery] = useState<Recovery | null>(null);
   const [keyDownloaded, setKeyDownloaded] = useState(false);
@@ -109,11 +112,15 @@ export default function Workspace() {
 
   useEffect(() => {
     const controller = new AbortController();
+    lifetime.current = controller;
+    const endSession = () => controller.abort();
+    window.addEventListener("tank:session-ended", endSession);
+    window.addEventListener("tank:session-expired", endSession);
 
     async function connect() {
       try {
-        await api("health", { signal: controller.signal });
-        const response = await api("files", { signal: controller.signal });
+        await workspaceAPI("health", { signal: controller.signal });
+        const response = await workspaceAPI("files", { signal: controller.signal });
         const result = await response.json();
 
         if (!controller.signal.aborted) {
@@ -130,8 +137,19 @@ export default function Workspace() {
     }
 
     void connect();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      window.removeEventListener("tank:session-ended", endSession);
+      window.removeEventListener("tank:session-expired", endSession);
+    };
   }, []);
+
+  async function workspaceAPI(path: string, init: RequestInit = {}) {
+    const signal = lifetime.current?.signal;
+    if (!signal) throw new Error("Workspace is not ready.");
+    signal.throwIfAborted();
+    return api(path, { ...init, signal: init.signal ? AbortSignal.any([signal, init.signal]) : signal });
+  }
 
   function chooseFile(selected: File | null) {
     setError("");
@@ -150,25 +168,27 @@ export default function Workspace() {
     setFile(selected);
   }
 
-  async function run(label: string, action: () => Promise<void>) {
+  async function run(label: string, action: (signal: AbortSignal) => Promise<void>) {
+    const signal = lifetime.current?.signal;
+    if (!signal || signal.aborted) return;
     setBusy(label);
     setError("");
     setMessage("");
 
     try {
-      await action();
+      await action(signal);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Request failed.");
+      if (!signal.aborted) setError(error instanceof Error ? error.message : "Request failed.");
     } finally {
-      setBusy("");
+      if (!signal.aborted) setBusy("");
     }
   }
 
   async function refresh() {
     await run("refresh", async () => {
       try {
-        await api("health");
-        const response = await api("files");
+        await workspaceAPI("health");
+        const response = await workspaceAPI("files");
         const result = await response.json();
         setIDs(result.file_ids);
         setNextAfter(result.next_after);
@@ -184,7 +204,7 @@ export default function Workspace() {
   async function loadMoreFiles() {
     if (!nextAfter) return;
     await run("load-more", async () => {
-      const response = await api(`files?after=${encodeURIComponent(nextAfter)}`);
+      const response = await workspaceAPI(`files?after=${encodeURIComponent(nextAfter)}`);
       const result = await response.json();
       setIDs((previous) => Array.from(new Set([...previous, ...result.file_ids])));
       setNextAfter(result.next_after);
@@ -218,9 +238,10 @@ export default function Workspace() {
 
   async function tankFile() {
     if (!file) return;
-    await run("tank", async () => {
+    await run("tank", async (signal) => {
       if (!prepared) {
         const result = await encryptFile(await file.arrayBuffer(), file.name);
+        signal.throwIfAborted();
         setPrepared(result);
         setKeyDownloaded(false);
         setKeySaved(false);
@@ -228,7 +249,7 @@ export default function Workspace() {
         return;
       }
       if (!keyDownloaded || !keySaved) throw new Error("Save your recovery key first.");
-      const response = await api("files", {
+      const response = await workspaceAPI("files", {
         method: "POST",
         headers: {
           "Content-Type": "application/octet-stream",
@@ -258,9 +279,10 @@ export default function Workspace() {
       return;
     }
 
-    await run("retrieve", async () => {
-      const response = await api(`files/${id}`);
+    await run("retrieve", async (signal) => {
+      const response = await workspaceAPI(`files/${id}`);
       const bytes = await readDownload(response);
+      signal.throwIfAborted();
 
       if ((await digest(bytes)) !== id) {
         throw new Error("Integrity verification failed. Download blocked.");
@@ -273,9 +295,11 @@ export default function Workspace() {
           throw new Error("Choose the recovery key for this file first.");
         }
         const restored = await decryptFile(bytes, recovery);
+        signal.throwIfAborted();
         download(restored.bytes, restored.filename);
         setMessage("File verified, decrypted in your browser, and downloaded.");
       } else {
+        signal.throwIfAborted();
         download(bytes, storedName);
         setMessage("Legacy unencrypted file verified and downloaded.");
       }
@@ -309,7 +333,7 @@ export default function Workspace() {
     }
 
     await run("registration", async () => {
-      const response = await api(`registrations/${id}`);
+      const response = await workspaceAPI(`registrations/${id}`);
       const result: Registration = await response.json();
 
       if (result.file_id !== id) {

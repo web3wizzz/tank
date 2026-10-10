@@ -221,6 +221,9 @@ export async function POST(request: Request, context: Context) {
       return json({ error: "Route not found." }, 404);
     }
 
+    const sdk = await client();
+    // Reject missing, expired, and revoked credentials before buffering a body.
+    await sdk.list("", { signal: request.signal });
     const bytes = await readFile(request);
     const encodedName = request.headers.get("X-Tank-Filename");
     let filename: string | undefined;
@@ -236,7 +239,7 @@ export async function POST(request: Request, context: Context) {
       }
     }
 
-    const manifest = await (await client()).tank(bytes, {
+    const manifest = await sdk.tank(bytes, {
       signal: request.signal,
       ...(filename === undefined ? {} : { filename }),
     });

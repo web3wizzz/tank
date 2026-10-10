@@ -96,6 +96,7 @@ export default function SessionGate({ children }: { children: ReactNode }) {
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error("Sign-out failed.");
+      window.dispatchEvent(new Event("tank:session-ended"));
       setSignedIn(false);
       setToken("");
     } catch (error) {

@@ -29,14 +29,30 @@ spending, or destructive changes to existing local data are authorized.
   frontend tests/lint/build, and browser recovery after credential replacement.
 - Pushed to origin/main. Tank CI and TypeScript SDK CI both passed.
 
-## Current milestone: browser file-list pagination
+### Browser file-list pagination — `6fee218`
 
 - The workspace now fetches later pages and rejects malformed cursors. New uploads
   no longer discard previously loaded file IDs; appended pages are deduplicated.
 - Verified all 101 stored files across pages, user isolation, encryption/recovery,
   replacement credentials, and retrieval after stopping an owned test node.
 - Validation: frontend production build, lint, 17 unit tests, full isolated browser
-  integration, and diff checks pass. Publication/Actions check is pending.
+  integration, and diff checks passed. Pushed to origin/main; Tank CI and
+  TypeScript SDK CI passed.
+
+## Current milestone: remaining authentication/session defects
+
+- The independent security review found upload bodies buffered before session
+  validation and uncancelled downloads after sign-out. Authenticate before reading
+  uploads; abort workspace requests on session end and before plaintext downloads.
+- Browser checks passed for headers-only unauthenticated uploads and a held
+  authenticated retrieval followed by sign-out: 401 before body upload, and the
+  pending request aborts without a late plaintext download.
+- Validation: 17 frontend tests, lint, production build, full isolated integration,
+  and diff checks passed. Publication and Actions verification are next.
+- Read-only reviews also confirmed mobile navigation overflow, stale encryption
+  FAQ text, same-file reselection, JSON-only login error handling, focus issues,
+  missing contract CI, and incomplete SDK/build workflow coverage. These remain
+  assigned to their ordered frontend/docs/CI milestones.
 
 ## Remaining backlog, in order
 
@@ -60,5 +76,5 @@ spending, or destructive changes to existing local data are authorized.
 
 ## Next task
 
-Push and verify the pagination milestone, then implement configurable request
-limits, storage quotas, and concurrency bounds.
+Publish and verify the session/body-buffering fix, then implement configurable
+request limits, storage quotas, and concurrency bounds.

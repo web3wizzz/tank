@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import http from "node:http";
 
 // Use an existing private credential file; never log credentials or key material.
 const credentialPath = process.env.TANK_E2E_CREDENTIAL_FILE;
@@ -122,6 +123,25 @@ try {
     }
   });
   const apiURL = upstream ?? origin;
+  if (upstream) {
+    const earlyRejection = await new Promise((resolve, reject) => {
+      const request = http.request(`${upstream}/api/tank/files`, { method: "POST", headers: {
+        Origin: origin, "X-Tank-Workspace": "1", "Content-Type": "application/octet-stream",
+        "Content-Length": String(16 * 1024 * 1024),
+      } }, (response) => {
+        clearTimeout(timer);
+        response.resume();
+        resolve(response.statusCode);
+        request.destroy();
+      });
+      const timer = setTimeout(() => { request.destroy(); reject(new Error("Unauthenticated upload waited for its body.")); }, 2000);
+      request.on("error", () => { clearTimeout(timer); reject(new Error("Unauthenticated upload transport failed.")); });
+      // Send only headers: the server must reject before reading any file bytes.
+      request.flushHeaders();
+    });
+    assert.equal(earlyRejection, 401);
+    console.log("PASS: unauthenticated upload is rejected before its body is buffered.");
+  }
   const rejected = await postSession(`${apiURL}/api/auth/session`, {
     headers: { Origin: "https://unapproved.example", "X-Tank-Workspace": "1" },
     data: { token },
@@ -278,8 +298,42 @@ try {
   assert.deepEqual(failures, []);
   assert.deepEqual(leakedRequests, []);
   console.log("PASS: missing/wrong keys fail closed; reloaded recovery restores identical PDF bytes and original Unicode filename.");
-  await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await page.getByLabel("Access credential").waitFor();
+  if (upstream) {
+    let release;
+    let ready;
+    let delivered;
+    const held = new Promise((resolve) => { release = resolve; });
+    const fetched = new Promise((resolve) => { ready = resolve; });
+    const finished = new Promise((resolve) => { delivered = resolve; });
+    const url = `${origin}/api/tank/files/${keyData.file_id}`;
+    const handler = async (route) => {
+      const headers = await route.request().allHeaders();
+      headers.host = new URL(upstream).host;
+      headers["x-forwarded-host"] = new URL(origin).host;
+      headers["x-forwarded-proto"] = "https";
+      const response = await route.fetch({ url: `${upstream}/api/tank/files/${keyData.file_id}`, headers });
+      assert.equal(response.status(), 200, "Delayed retrieval must already have authenticated and read ciphertext.");
+      ready();
+      await held;
+      try { await route.fulfill({ response }); } catch { /* The browser has aborted this owned request. */ }
+      delivered();
+    };
+    await page.route(url, handler);
+    await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
+    await fetched;
+    const canceled = page.waitForEvent("requestfailed", { predicate: (request) => request.url() === url, timeout: 5000 });
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.getByLabel("Access credential").waitFor();
+    await canceled;
+    release();
+    await finished;
+    await page.unroute(url, handler);
+    await assert.rejects(page.waitForEvent("download", { timeout: 500 }), (error) => error.name === "TimeoutError");
+    console.log("PASS: sign-out aborts a pending authenticated retrieval and prevents a late plaintext download.");
+  } else {
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.getByLabel("Access credential").waitFor();
+  }
   assert.ok(!(await context.cookies()).some((value) => value.name === "tank_session"));
   console.log("PASS: sign-out clears the session.");
   if (process.env.TANK_E2E_ACCESS_TOOL) {
