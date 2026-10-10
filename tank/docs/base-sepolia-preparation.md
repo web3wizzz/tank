@@ -80,7 +80,10 @@ and public contract verification are outside current authorization.
 
 The current Go registration client remains restricted to unlocked local Anvil.
 Do not point it at Base Sepolia or merely remove loopback/chain restrictions.
-A separate signed mode still needs explicit chain/contract/signer binding,
+The [offline signed-registration layer](signed-registration-preparation.md) now
+provides guarded intent preparation, durable account lanes, and confirmation
+checks without any broadcaster. A separate public worker still needs the selected
+custody/RPC adapter, explicit chain/contract/signer binding,
 bounded fee policy, exclusive nonce ownership, durable signed transactions saved
 before broadcast, restart/rebroadcast recovery, canonical confirmations/readback,
 and redacted provider errors. Deploying a registry alone does not complete that

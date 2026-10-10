@@ -2,8 +2,8 @@
 
 Metadata and node shards are separate recovery inputs. Browser recovery keys stay
 with users and are never included in a server-side backup. A metadata snapshot
-contains credential hashes, authorization, manifests, filenames, and durable
-jobs; store it privately and encrypt off-machine backup copies.
+contains credential hashes, authorization, manifests, filenames, durable
+jobs, and any prepared signed-transaction journal; store it privately and encrypt off-machine backup copies.
 
 ## Online metadata snapshots
 

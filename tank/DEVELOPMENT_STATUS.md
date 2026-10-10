@@ -236,7 +236,7 @@ removing its restrictions.
   real RPC/signer/hosts and deployment authorization remain absent.
 
 
-### Current milestone: Base Sepolia preparation and pilot handoff
+### Completed milestone: Base Sepolia preparation and pilot handoff — `70a31cd`
 
 - Added a Foundry deployment script bound to chain 84532 and a nonzero selected
   public sender. Offline tests simulate creation and reject wrong-chain/zero
@@ -248,7 +248,28 @@ removing its restrictions.
   Python preparation tests and an actual unsigned bytecode-plan check passed.
 - Operator guides describe private TLS/storage/monitoring/backups, hardware sizing
   assumptions, retention funding/operator exit, and local versus real evidence.
-- Publication/Actions verification pending. Once it passes, authorized local
-  preparation is complete; real pilot acceptance is still blocked by absent
+- All four Actions passed. Real pilot acceptance is still blocked by absent
   host/RPC/signer/user decisions, signed-worker integration, and deployment
   authorization. No real testnet or remote deployment has occurred.
+
+
+### Current milestone: offline signed-registration journal
+
+- Added caller-provided signer intent preparation with fixed testnet chain,
+  zero-value registry calls, explicit execution gas/fee/budget bounds, and no RPC
+  transport or broadcaster. No real signing credential is selected.
+- Sealed intent before custody callbacks and validate fresh serialized snapshots;
+  malicious-signer tests caught and fixed calldata mutation and sender-cache/
+  signature corruption bypasses before publication.
+- Additive schema7 journal atomically fences jobs and one outstanding signer
+  account transaction across contracts/workers. Restart resumes immutable bytes;
+  expiry never frees the lane; confirmed nonce history prevents reuse/skipping.
+- Confirmation checks require receipt success, canonical hash/depth, pinned
+  readback, matching commitment/size, and current fencing. These are trusted-RPC
+  policy checks, not L1 finality proofs. Execution fee caps exclude Base L1 fees;
+  total fee/spend policy remains required for any future broadcaster.
+- Full Go race tests/vet/build and focused security regressions passed; final
+  schema7 browser restore validation passed; publication/CI pending.
+- Next: finish verification and publish; actual pilot remains blocked by selected
+  hosts/RPC/custody/funding/retention terms, adapter/broadcaster integration, and
+  deployment authorization. Phase3–5 work remains outside this milestone.

@@ -67,7 +67,7 @@ func TestFilenamePersistenceAndCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, migrationErr := db.ExecContext(ctx,
-		"DROP TABLE upload_leases; DROP TABLE file_access; DROP TABLE api_credentials; DROP TABLE principals; DROP TABLE file_names; PRAGMA user_version = 3;")
+		"DROP TABLE registration_transactions; DROP TABLE upload_leases; DROP TABLE file_access; DROP TABLE api_credentials; DROP TABLE principals; DROP TABLE file_names; PRAGMA user_version = 3;")
 	closeErr := db.Close()
 	if migrationErr != nil {
 		t.Fatal(migrationErr)

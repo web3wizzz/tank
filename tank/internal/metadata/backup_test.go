@@ -195,7 +195,7 @@ func TestBackupDoesNotMigrateSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.ExecContext(ctx, "DROP TABLE upload_leases; PRAGMA user_version=5"); err != nil {
+	if _, err := store.db.ExecContext(ctx, "DROP TABLE registration_transactions; DROP TABLE upload_leases; PRAGMA user_version=5"); err != nil {
 		t.Fatal(err)
 	}
 	store.Close()
