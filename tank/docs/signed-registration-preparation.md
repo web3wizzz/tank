@@ -3,7 +3,8 @@
 The new internal preparation/journal layer does not select a wallet, connect to
 an RPC, submit a transaction, or enable the public registration worker. The
 existing local unlocked-account client stays restricted to Anvil chain31337.
-A selected custody and RPC adapter are required for a future authorized pilot.
+A selected custody adapter and an explicitly authorized submission path are
+required for a future pilot. The read-only RPC adapter is prepared separately.
 
 ## What is implemented locally
 
@@ -73,8 +74,16 @@ confirmation/reorg/readback failures, stale completion, and nonce reuse/skip.
 The browser pilot drill separately verifies encrypted file/authorization recovery
 across machine-process loss and metadata snapshot restoration.
 
+The `TestnetReader` adapter uses a selected HTTPS provider, checks chain84532
+and code at the chosen registry, and exposes only pending nonce and canonical
+observations. Responses and time are bounded, redirects are refused, provider
+errors are redacted, and the chain is rechecked for every workflow. Registry
+readback uses a block hash with `requireCanonical=true`, followed by another
+canonical-header check. No service activates it automatically; tests use owned
+TLS fixtures. It checks code presence, not a deployed-bytecode fingerprint.
+
 Remaining public integration requires the selected dedicated signer/custody,
-chain-bound RPC adapter, immutable-byte rebroadcast with ambiguous-error handling,
+authorized submission/retry adapter, immutable-byte rebroadcast with ambiguous-error handling,
 nonce discrepancy reconciliation, Base total-fee accounting, canonical block
 queries, and explicit broadcast authorization. Do not activate a public worker
 by removing restrictions from the existing local client.

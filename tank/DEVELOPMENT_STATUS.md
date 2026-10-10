@@ -253,7 +253,7 @@ removing its restrictions.
   authorization. No real testnet or remote deployment has occurred.
 
 
-### Current milestone: offline signed-registration journal
+### Completed milestone: offline signed-registration journal — `8023ab3`
 
 - Added caller-provided signer intent preparation with fixed testnet chain,
   zero-value registry calls, explicit execution gas/fee/budget bounds, and no RPC
@@ -269,7 +269,24 @@ removing its restrictions.
   policy checks, not L1 finality proofs. Execution fee caps exclude Base L1 fees;
   total fee/spend policy remains required for any future broadcaster.
 - Full Go race tests/vet/build and focused security regressions passed; final
-  schema7 browser restore validation passed; publication/CI pending.
+  schema7 browser restore validation passed. All four Actions passed.
 - Next: finish verification and publish; actual pilot remains blocked by selected
   hosts/RPC/custody/funding/retention terms, adapter/broadcaster integration, and
   deployment authorization. Phase3–5 work remains outside this milestone.
+
+
+### Current milestone: read-only testnet observation adapter
+
+- Added an HTTPS-only, chain84532-bound reader with registry-code presence checks,
+  bounded response/time, redirects refused, and provider errors redacted.
+- It reads pending signer nonce, successful receipts, canonical headers, and
+  hash-pinned registry records with requireCanonical=true; it rechecks canonical
+  block identity after readback and chain identity for each workflow.
+- No signer, wallet, submission API, default RPC, or automatic activation exists.
+  Real configuration inputs remain unselected; tests use owned local TLS servers.
+- Focused race tests/vet/build passed for canonical reads, changed networks,
+  missing code, untrusted certificates, provider errors, receipt absence/reorg,
+  redirects, and caller deadlines. Publication/Actions pending.
+- Next: record verified preparation and remaining real-pilot blockers. Selected
+  custody and an authorized immutable-byte submission/retry adapter, Base total
+  fee policy, deployment inputs/approval, and real-host acceptance are outstanding.
