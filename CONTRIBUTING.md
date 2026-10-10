@@ -74,6 +74,9 @@ Documentation-only changes do not require unrelated tests.
 - Chain outages must not prevent independent file storage and retrieval.
 - On-chain commitment conflicts must not be silently overwritten.
 - Storage paths and outbound node requests must remain validated.
+- User file lists, metadata, retrieval, and registration must remain scoped.
+- Browser plaintext, original encrypted filenames, and recovery keys stay client-side.
+- Resource limits and migrations preserve existing data and credential identity.
 
 If your change affects one of these properties, describe how you verified it.
 
@@ -82,7 +85,8 @@ If your change affects one of these properties, describe how you verified it.
 From the Go project directory:
 
 ```bash
-go test -race ./...
+go test -race -count=1 -timeout=5m ./...
+go vet ./...
 go build ./cmd/...
 ```
 
@@ -96,8 +100,42 @@ For Solidity changes, from `tank/contracts/`:
 For launcher changes, from the Go project directory:
 
 ```bash
-bash -n scripts/run-local.sh scripts/run-anvil.sh
+bash -n scripts/*.sh
+python3 scripts/test-local-env.py
 ```
+
+For SDK changes, from `tank/sdk-ts/`:
+
+```bash
+npm ci
+npm run check
+npm test
+```
+
+For browser workspace changes, install dependencies and build the linked SDK first:
+
+```bash
+cd tank
+npm --prefix sdk-ts ci
+npm --prefix sdk-ts run build
+npm --prefix frontend ci
+```
+
+Then from `tank/frontend/`:
+
+```bash
+npm test
+npm run lint
+npm run build
+npx playwright install --with-deps chromium
+npm run test:integration
+```
+
+The integration runner creates temporary users, nodes, and metadata. It verifies
+browser encryption, original filenames, user isolation, revocation, and retrieval
+after one test node stops, and removes its own data at exit. It uses a local proxy
+simulation at an HTTPS browser origin; it does not log in to GitHub's Codespaces
+gateway. See [local MVP checks](tank/docs/local-mvp.md).
 
 Before committing:
 
@@ -106,7 +144,11 @@ git diff --check
 git status --short
 ```
 
-Review the staged diff and remove generated files or credentials.
+Review `git diff --cached` and stage only the intended milestone files. Verify that
+`.env*`, credential JSON, recovery key JSON, databases, `tank/data/`, logs,
+`node_modules/`, `.next/`, SDK `dist/`, Go `bin/`, and contract `out/cache/broadcast`
+remain ignored and untracked. Never include secret values in issues, test output,
+CI artifacts, screenshots, or commits. Preserve unrelated edits and local data.
 
 Check the repository’s CI workflow for any additional required checks.
 
@@ -148,7 +190,7 @@ Redact tokens, RPC credentials, private keys, and private file contents from log
 
 ## Report a security issue
 
-For a suspected security vulnerability, use the repository’s private security reporting feature if enabled.
+Follow [SECURITY.md](SECURITY.md). For a suspected security vulnerability, use the repository’s private security reporting feature if enabled.
 
 Otherwise, contact the maintainer privately through a published contact method before posting exploit details publicly.
 

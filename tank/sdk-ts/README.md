@@ -32,7 +32,7 @@ import { Tank } from "../dist/index.js";
 
 const client = new Tank({
   baseURL: "http://127.0.0.1:8080",
-  token: process.env.TANK_API_TOKEN,
+  token: process.env.TANK_USER_TOKEN,
   timeoutMs: 30_000,
 });
 ```
@@ -48,11 +48,12 @@ Tokens must be passed explicitly.
 | `tank(bytes, options?)` | Manifest with a verified file ID |
 | `retrieve(fileID, options?)` | Verified bytes as a Uint8Array |
 | `list(after?, options?)` | One page of up to 100 file IDs |
+| `fileInfo(fileID, options?)` | Authorized filename and byte size |
 | `registrationStatus(fileID, options?)` | Recorded registration status |
 
 File data must be a Uint8Array. Node.js Buffer values are accepted.
 
-Files must contain between 1 byte and 16 MiB.
+Files must contain between 1 byte and the configured upload limit (16 MiB by default).
 File IDs are 64 lowercase hexadecimal characters, without 0x.
 
 Response field names match the HTTP API, including file_id.
@@ -105,6 +106,42 @@ and waits for automatic registration.
 
 ## Browser integration
 
-Browser deployment and coordinator CORS configuration have not been
-validated. Do not embed the shared development API token in a public
-frontend.
+The local Next.js workspace proxies authenticated requests through an HttpOnly
+session. Browser encryption and the exact Codespaces HTTPS origin are verified.
+Direct browser-to-coordinator CORS is not supported. Do not embed administrator
+credentials in frontend code. See [browser encryption](../docs/browser-encryption.md).
+
+## Credentials, privacy, and limits
+
+Use a private individual user token (`tank_u_…`) for application clients.
+The examples above expect `TANK_USER_TOKEN` to be supplied privately by your
+application environment; launchers do not populate it. Never log it or expose it
+in a public frontend. Administrator tokens access legacy/all files and manual
+repair; node tokens are not coordinator credentials.
+
+A user can list, inspect, retrieve, and check registration only for their files.
+Another user's file returns 404. Credentials expire after 30 days; revocation
+rejects subsequent requests. Renew with `tank-access issue --user-id USER_ID
+--out NEW_PRIVATE_FILE` to preserve the same user's file access. Existing keys
+remain valid until expiry or explicit revocation. See the
+[credential guide](../docs/user-credentials.md).
+
+SDK uploads send the supplied bytes without automatic encryption. Encrypt
+sensitive input yourself or use the browser workspace; its recovery key is
+separate from authorization and cannot replace a user token. A file ID is a hash
+of the uploaded bytes, so browser IDs hash ciphertext.
+
+Treat 413 as a file-size error, 429 as temporary pressure (honor `Retry-After`
+and avoid unbounded automatic retries), and 507 as quota/capacity exhaustion.
+Server deadlines can return 408/504; cancel through your context or AbortSignal.
+Limits apply to principal identity across replacement credentials. See
+[resource limits](../docs/resource-limits.md) and [security boundaries](../../SECURITY.md).
+
+Pass `{ filename: "report.pdf", signal }` to `tank` to store a validated filename.
+`fileInfo` returns it with the size. Filenames sent by SDK uploads are plaintext
+metadata. `retrieve` returns bytes; your application chooses its output filename.
+
+For complete pagination, request `list("")`, collect the returned IDs, and pass
+the last ID of each full 100-item page to `list(after)` until a page is shorter
+than 100. A concurrent upload whose ID sorts before the cursor may require a
+fresh listing.

@@ -67,6 +67,9 @@ HTTPS URL using the existing gateway token; see the [encryption guide](browser-e
 
 The test verifies:
 
+- Responsive signed-in/out layouts at 320/375/768px, keyboard login, stable
+  gateway errors, repeated file selection, and focus after session transitions.
+- Configured lower upload limits and registration deadline/admission release.
 - Exact-origin sign-in, secure HttpOnly sessions, and rejection of missing,
   malformed, unapproved, or cross-site request origins and workspace headers.
 - Browser encryption of a valid PDF, with its Unicode filename inside ciphertext.

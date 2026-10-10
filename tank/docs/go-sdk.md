@@ -12,7 +12,7 @@ been published under a public GitHub module path.
 ```go
 client, err := tank.New(tank.Config{
     BaseURL: "http://127.0.0.1:8080",
-    Token:   os.Getenv("TANK_API_TOKEN"),
+    Token:   os.Getenv("TANK_USER_TOKEN"),
     Timeout: 30 * time.Second,
 })
 if err != nil {
@@ -39,7 +39,7 @@ Pass an empty cursor to `List` for the first page. Use the last ID
 from a full page as the cursor for the next page.
 
 All methods accept a context for cancellation and deadlines.
-Files must contain between 1 byte and 16 MiB.
+Files must contain between 1 byte and the configured upload limit (16 MiB by default).
 
 ## Error handling
 
@@ -81,3 +81,29 @@ A registered status reflects the worker's recorded verification.
 The SDK does not independently query the blockchain.
 
 Chain state resets can invalidate previously recorded statuses.
+
+## Credentials, privacy, and limits
+
+Use a private individual user token (`tank_u_…`) for application clients.
+The examples above expect `TANK_USER_TOKEN` to be supplied privately by your
+application environment; launchers do not populate it. Never log it or expose it
+in a public frontend. Administrator tokens access legacy/all files and manual
+repair; node tokens are not coordinator credentials.
+
+A user can list, inspect, retrieve, and check registration only for their files.
+Another user's file returns 404. Credentials expire after 30 days; revocation
+rejects subsequent requests. Renew with `tank-access issue --user-id USER_ID
+--out NEW_PRIVATE_FILE` to preserve the same user's file access. Existing keys
+remain valid until expiry or explicit revocation. See the
+[credential guide](user-credentials.md).
+
+SDK uploads send the supplied bytes without automatic encryption. Encrypt
+sensitive input yourself or use the browser workspace; its recovery key is
+separate from authorization and cannot replace a user token. A file ID is a hash
+of the uploaded bytes, so browser IDs hash ciphertext.
+
+Treat 413 as a file-size error, 429 as temporary pressure (honor `Retry-After`
+and avoid unbounded automatic retries), and 507 as quota/capacity exhaustion.
+Server deadlines can return 408/504; cancel through your context or AbortSignal.
+Limits apply to principal identity across replacement credentials. See
+[resource limits](resource-limits.md) and [security boundaries](../../SECURITY.md).

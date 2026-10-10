@@ -97,4 +97,15 @@ then fix the reviewed frontend accessibility/responsiveness/error-handling issue
 - Frontend 19 tests, lint, production build, and isolated integration passed.
   Browser checks cover 320/375/768px signed-in/out layouts, keyboard submission,
   HTML gateway failures, repeat selection, and focus restoration.
-- Publication/Actions pending. Next: SDK/security/contributor documentation.
+- Published as `6b8b818`; Go and SDK Actions passed.
+
+## Completed milestone: documentation
+
+- Updated README, CONTRIBUTING, Go/TypeScript SDK guides, and local-MVP checks
+  for exact-origin browser setup, per-user credentials/renewal, encryption,
+  pagination, quotas, cancellation, and repeatable validation.
+- Added SECURITY.md with private reporting, trust boundaries, copied-session
+  replay limits, key loss, local-chain restrictions, and private-state handling.
+- Reviewed examples against current APIs; all local documentation links pass.
+  Diff/private-artifact review passed. Publication/Actions pending.
+- Next: contract/browser CI and full Go/SDK build coverage.

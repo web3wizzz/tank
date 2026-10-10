@@ -23,9 +23,9 @@ Tank stores a file across several storage nodes, adds recovery data, and checks 
 
 For users, the workflow is simple:
 
-**Tank a file → Keep its file ID → Retrieve it later.**
+**Tank a file → Keep its file ID and browser recovery key → Retrieve it later.**
 
-For developers, the same workflow is available through a Go CLI and an HTTP API.
+For developers, the same workflow is available through a Go CLI, HTTP API, and Go/TypeScript SDKs. The browser workspace encrypts file contents and the original filename before upload. Keep the downloaded recovery key privately; it is required for decryption.
 
 **“Store Once, Retrieve Forever” is our vision.** The current release is a local development MVP. File availability depends on storage nodes and metadata remaining available; indefinite retention is not yet guaranteed.
 
@@ -38,7 +38,9 @@ For developers, the same workflow is available through a Go CLI and an HTTP API.
 | Restore missing storage copies | Audits, a durable repair queue, and repair to a spare node |
 | Record a file commitment on-chain | A Solidity registry and background registration worker |
 | Keep storage working during a chain outage | Independent storage operations and registration retries |
-| Explore the complete system locally | Go services, CLI, SQLite metadata, and persistent Anvil state |
+| Keep browser uploads private | Browser AES-256-GCM encryption with a downloaded per-file recovery key |
+| Use a personal workspace | Individual credentials, scoped file lists, and revocable browser sessions |
+| Explore the complete system locally | Go services, browser workspace, CLI, SQLite metadata, and persistent Anvil state |
 
 The local demo uses three initial storage nodes and a fourth spare. These run on one machine; they do not demonstrate geographic or independent-operator resilience.
 
@@ -71,7 +73,7 @@ The registry stores a commitment, file size, and registration timestamp under a 
 ### Requirements
 
 - Go: use the toolchain specified in `tank/go.mod`.
-- Bash, curl, and OpenSSL for the local launcher.
+- Bash, curl, OpenSSL, and `flock` (util-linux on Linux) for the local launcher.
 - Foundry’s Anvil and Forge for optional on-chain registration.
 
 The commands below start from the **repository root**. The Go project lives in the nested `tank/` directory.
@@ -85,7 +87,7 @@ bash scripts/run-local.sh
 
 Keep this terminal running.
 
-The launcher generates `.env.tank-local` with development tokens if it does not exist, then starts four storage nodes and the coordinator.
+The launcher initializes `.env.tank-local` with development node/API tokens and a frontend session secret, preserving existing settings, then starts four storage nodes and the coordinator. The environment file is private (mode 0600).
 
 If chain settings are already present in that file, the launcher also starts the registration worker.
 
@@ -101,7 +103,7 @@ set +a
 go build -o bin/tank ./cmd/tank
 ./bin/tank health
 
-printf 'Hello from Tank!\n' > data/local-demo/hello.txt
+( set -o noclobber; printf 'Hello from Tank!\n' > data/local-demo/hello.txt )
 ./bin/tank tank data/local-demo/hello.txt
 ```
 
@@ -124,6 +126,36 @@ cmp data/local-demo/hello.txt data/local-demo/hello-retrieved.txt
 No output from `cmp` means the files match.
 
 The CLI does not overwrite an existing destination, so choose a new output filename for repeated downloads.
+
+### Browser workspace
+
+Use Node.js 24 or newer. With the storage launcher running, from `tank/`:
+
+```bash
+npm --prefix sdk-ts ci
+npm --prefix sdk-ts run build
+npm --prefix frontend ci
+npm --prefix frontend run build
+
+go build -o bin/tank-access ./cmd/tank-access
+./bin/tank-access create --label "Browser user" --out data/local-demo/browser-user-credential.json
+bash scripts/run-frontend.sh
+```
+
+The credential file must not already exist. Open it privately and use its `token`
+in the workspace's sign-in form. Administrator and node tokens cannot sign in.
+
+Open `http://localhost:3000`, or the forwarded HTTPS port 3000 URL in Codespaces.
+The launcher persists the exact Codespaces origin in `.env.tank-local`. Other proxies need
+an explicit `TANK_FRONTEND_ORIGIN` in that file; restart the frontend after changing it.
+
+Select a PDF or another file, encrypt it, download its recovery key, confirm you
+saved it, then tank the encrypted file. To retrieve later, load the recovery key
+and choose **Retrieve file**. The browser verifies the ciphertext, decrypts it,
+and restores the original bytes and filename. Keep another copy during the MVP.
+
+See the [browser encryption guide](tank/docs/browser-encryption.md) and
+[local MVP verification guide](tank/docs/local-mvp.md) for limits and tests.
 
 ### Optional: enable local blockchain registration
 
@@ -194,7 +226,7 @@ Default coordinator: `http://127.0.0.1:8080`.
 All routes below except `/health` require:
 
 ```http
-Authorization: Bearer <TANK_API_TOKEN>
+Authorization: Bearer <individual-user-token-or-admin-token>
 ```
 
 | Method | Route | Purpose |
@@ -202,11 +234,33 @@ Authorization: Bearer <TANK_API_TOKEN>
 | `GET` | `/health` | Check coordinator health |
 | `POST` | `/tank` | Store a raw binary request body and return its manifest |
 | `GET` | `/retrieve/{file_id}` | Reconstruct, verify, and return file bytes |
+| `GET` | `/files/{file_id}` | Read authorized filename and size |
 | `GET` | `/list?after={file_id}` | List file IDs with cursor pagination |
 | `POST` | `/repair/{file_id}` | Repair missing shards to a configured replacement node |
 | `GET` | `/registrations/{file_id}` | Read registration job status when chain integration is configured |
 
-Tank a file from the Go project directory:
+Individual user credentials (`tank_u_…`) can tank files and access only files
+granted to that user. Lists are scoped per user, and another user's file returns
+404. The administrator token from `.env.tank-local` retains access to legacy files
+and manual repair. Credential creation and revocation are local administrative
+operations through `tank-access`, not public signup endpoints.
+
+Use `tank-access issue --user-id USER_ID --out NEW_PRIVATE_FILE` to renew an existing
+user without losing access to their files. `users` and `keys --user-id USER_ID`
+list administrative metadata without tokens. See the [credential lifecycle guide](tank/docs/user-credentials.md).
+
+Each credential currently expires after 30 days. Browser sessions last up to
+eight hours and recheck the credential on storage requests. Revoke a credential
+using its non-secret `id` from the private JSON file:
+
+```bash
+./bin/tank-access revoke --key-id YOUR_CREDENTIAL_ID
+```
+
+Tanking through CLI and SDK remains unencrypted unless your application encrypts
+the bytes first. The browser recovery key does not bypass file authorization.
+
+Tank a file from the Go project directory using the administrator token:
 
 ```bash
 curl --fail --silent --show-error -H "Authorization: Bearer $TANK_API_TOKEN" -H "Content-Type: application/octet-stream" --data-binary @data/local-demo/hello.txt http://127.0.0.1:8080/tank
@@ -232,11 +286,20 @@ Successful storage does not mean registration has completed.
 
 A `registered` status records a successful worker check; it does not continuously revalidate the chain. If Anvil state is deleted or reset, local job statuses can become stale.
 
+### Resource bounds
+
+Upload bodies, authenticated request rates, concurrency, TCP connections, and
+logical user/total storage have configurable limits. Nodes separately bound retained
+bytes and file counts. Oversized uploads return 413, saturation returns 429 with
+`Retry-After`, and quota exhaustion returns 507. Existing files remain retrievable
+when limits are lowered. See [resource configuration](tank/docs/resource-limits.md),
+including schema-6 upgrade notes and retained partial uploads.
+
 ### Storage and commitment details
 
 | Setting | Current implementation |
 | --- | --- |
-| Maximum file size | 16 MiB |
+| Default upload limit | 16 MiB; configurable downward, with browser encryption overhead |
 | Local launcher segment size | 4 MiB |
 | Encoding | Reed–Solomon: 4 data + 2 parity shards per segment |
 | Verification | SHA-256 hashes and Merkle roots |
@@ -290,7 +353,8 @@ Paths are relative to the repository root:
 From the Go project directory:
 
 ```bash
-go test -race ./...
+go test -race -count=1 -timeout=5m ./...
+go vet ./...
 go build ./cmd/...
 ```
 
@@ -305,12 +369,13 @@ From `tank/contracts/`:
 | Working and verified locally | Planned |
 | --- | --- |
 | Authenticated API, Go CLI, and Go/TypeScript SDKs | SDK publishing and release tooling |
-| File recovery after node failure | Browser interface |
-| Manual and queued background repair | Independent operator deployments |
+| Browser encryption, original filenames, and per-user workspaces | Self-service signup and account management |
+| File recovery after node failure | Independent operator deployments |
+| Manual and queued background repair | Production durability and backup operations |
 | Automatic registration and RPC outage recovery | Public testnet registration and secure signing |
 | Exact retrieval after registration | Larger-file streaming and performance measurements |
 | On-chain record preserved across Anvil restart | Chain reset detection and status revalidation |
-| Go race tests and GitHub CI | Retention economics, storage proofs, and operator incentives |
+| Go race tests, isolated browser integration, and GitHub CI | Retention economics, storage proofs, and operator incentives |
 
 Current audits read shards to check availability and integrity.
 
@@ -326,7 +391,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, and pull request guid
 
 Open an issue before starting a large architecture change.
 
-Useful starting points include clearer setup errors, registration status tests, and a repeatable end-to-end demo.
+See [DEVELOPMENT_STATUS.md](tank/DEVELOPMENT_STATUS.md) for completed milestones and validation. Use [SECURITY.md](SECURITY.md) for reporting and trust boundaries.
 
 ## Support the project
 
@@ -343,7 +408,7 @@ For sponsorship or collaboration, use the maintainer contact details on the repo
 
 Tank is a development MVP.
 
-Its local nodes share one machine, metadata depends on SQLite, and no file encryption or multi-user authorization model has been implemented.
+Its local nodes share one machine and metadata depends on SQLite. Browser uploads are encrypted; CLI/SDK uploads are unencrypted by default. Individual user authorization and revocable sessions are implemented. Encryption and access controls have not had an independent security audit.
 
 Development tokens and Anvil’s public accounts are for local testing.
 
