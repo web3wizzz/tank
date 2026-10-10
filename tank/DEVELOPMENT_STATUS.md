@@ -1,5 +1,7 @@
 # Tank Phase 1 development status
 
+Status: Phase 1 local MVP backlog complete. No unfinished implementation tasks.
+
 Scope: complete the local MVP backlog below. Verified milestones may be committed
 and pushed to the existing origin; no deployments, force pushes, secret exposure,
 spending, or destructive changes to existing local data are authorized.
@@ -86,7 +88,7 @@ spending, or destructive changes to existing local data are authorized.
   replay limits, key loss, local-chain restrictions, and private-state handling.
 - Reviewed examples against current APIs; all local documentation links pass.
   Diff/private-artifact review passed. Published as `9b6ef73`; Go and SDK Actions passed.
-- Next: contract/browser CI and full Go/SDK build coverage.
+- Subsequent CI milestone completed below.
 
 ## Completed milestone: CI coverage
 
@@ -98,10 +100,9 @@ spending, or destructive changes to existing local data are authorized.
 - actionlint v1.7.12 passed for all four workflows; launcher 5 tests and broader
   Go builds passed. Published as `5e95606`; Go, SDK, browser, and contract Actions
   all passed.
-- Next: final MVP review, registration worker failure/recovery regressions, and
-  full isolated verification.
+- Subsequent final review completed below.
 
-## Final milestone: complete MVP review
+## Completed milestone: complete MVP review
 
 - Added isolated JSON-RPC/SQLite tests for worker configuration, 101-file
   reconciliation preserving completed jobs, wrong chain/missing contract,
@@ -124,12 +125,16 @@ spending, or destructive changes to existing local data are authorized.
   services. Verified schema 6 retains the original manifests, identity,
   credentials, permissions, and filename records. Existing logs were retained;
   restored services write separate ignored private logs.
-- Final milestone publication and GitHub Actions verification pending.
+- Published as `7359f95`. All four GitHub Actions workflows passed:
+  [Go](https://github.com/web3wizzz/tank/actions/runs/38016499236),
+  [SDK](https://github.com/web3wizzz/tank/actions/runs/38016499168),
+  [contracts](https://github.com/web3wizzz/tank/actions/runs/38016499167), and
+  [browser integration](https://github.com/web3wizzz/tank/actions/runs/38016499199).
 
 ## Blockers and next task
 
-No essential implementation blocker. Phase 1 local backlog is complete; only final
-publication/Actions verification remains. Stop after those checks pass. Do not
+No essential blocker. Phase 1 local backlog is complete and published, with all
+verification passing. There is no next Phase 1 task; stop here. Do not
 expand into production deployment, public chains, payments, signup, streaming,
 operator economics, or package publication.
 
