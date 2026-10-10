@@ -1,6 +1,7 @@
 # Tank Phase 1 development status
 
-Status: Phase 1 complete; Phase 2 local pilot preparation in progress.
+Status: Phase 1 complete; Phase 2 local preparation verified. Real testnet pilot
+acceptance remains blocked by the deployment/custody/retention inputs below.
 
 Scope: complete the local MVP backlog below. Verified milestones may be committed
 and pushed to the existing origin; no deployments, force pushes, secret exposure,
@@ -275,7 +276,7 @@ removing its restrictions.
   deployment authorization. Phase3–5 work remains outside this milestone.
 
 
-### Current milestone: read-only testnet observation adapter
+### Completed milestone: read-only testnet observation adapter — `4199d14`
 
 - Added an HTTPS-only, chain84532-bound reader with registry-code presence checks,
   bounded response/time, redirects refused, and provider errors redacted.
@@ -286,7 +287,56 @@ removing its restrictions.
   Real configuration inputs remain unselected; tests use owned local TLS servers.
 - Focused race tests/vet/build passed for canonical reads, changed networks,
   missing code, untrusted certificates, provider errors, receipt absence/reorg,
-  redirects, and caller deadlines. Publication/Actions pending.
+  redirects, oversized responses, and caller deadlines. All four Actions passed.
 - Next: record verified preparation and remaining real-pilot blockers. Selected
   custody and an authorized immutable-byte submission/retry adapter, Base total
   fee policy, deployment inputs/approval, and real-host acceptance are outstanding.
+
+
+## Phase 2 handoff and next task
+
+Verified and pushed preparation milestones:
+
+| Commit | Result |
+| --- | --- |
+| `0a0c8d4` | Private online metadata backup and restore validation |
+| `d3df72a` | Authenticated operational capacity/readiness reports |
+| `4560107` | Separate-machine templates, TLS, distinct node credentials, operator guide |
+| `a50aa6b` | Encrypted process-loss, repair, metadata restart/restore, and outage drill |
+| `70a31cd` | Guarded Base Sepolia script, unsigned plan, and read-only preflight |
+| `8023ab3` | Offline signed-intent journal, nonce fencing, and confirmation policy tests |
+| `4199d14` | Read-only HTTPS testnet observations and canonical pinned readback |
+
+All four Actions passed for the last implementation commit:
+[Go](https://github.com/web3wizzz/tank/actions/runs/38052110826),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/38052110812),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/38052110825), and
+[browser pilot](https://github.com/web3wizzz/tank/actions/runs/38052111115).
+Local validation includes full Go race/vet/build, focused security regressions,
+19 frontend tests/lint/build, 15 SDK tests in CI, 11 contract tests including 256
+fuzz runs, launcher/template/preparation checks, and schema7 pilot restore.
+
+The agreed local preparation tasks are complete. Real pilot completion is not
+claimed. The user confirmed that actual hosts, RPC endpoint, and signing inputs
+are not selected and forbids remote provisioning or testnet broadcast for now.
+No real RPC/wallet/host was invented; no testnet transaction, remote deployment,
+paid infrastructure, or change to existing local storage was performed.
+
+Remaining gates, before a real pilot:
+
+1. Select independent machines, stable HTTPS/DNS endpoints, operator custody,
+   RPC provider, signing method, pilot users, and retention/funding/exit terms.
+2. Integrate the selected signer and an explicitly authorized submission/retry
+   adapter with the prepared journal/reader. Include Base L1/security fees and
+   approved total-spend/balance policy; no public broadcaster is enabled now.
+3. Review a concrete deployment/simulation plan and obtain deployment/broadcast
+   authorization, then execute and verify the selected testnet deployment.
+4. Record actual independent-machine failure, repaired encrypted recovery, and
+   metadata restore evidence. Loopback process tests cannot establish this.
+
+Next task when the required choices are available: signer/custody integration and
+review of the real deployment configuration. Do not proceed into payments,
+collateral, larger/resumable transfers, rollup DA, or unrelated landing features.
+Preserve private configuration, existing data, logs, backups, and generated
+artifacts; all remain ignored/untracked. Signed journals are private operational
+state even though they contain no recovery or signing key.
