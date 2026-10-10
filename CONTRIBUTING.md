@@ -102,6 +102,8 @@ For launcher changes, from the Go project directory:
 ```bash
 bash -n scripts/*.sh
 python3 scripts/test-local-env.py
+python3 scripts/test-pilot-templates.py
+python3 scripts/test-base-sepolia.py
 ```
 
 For SDK changes, from `tank/sdk-ts/`:
@@ -129,6 +131,8 @@ npm run lint
 npm run build
 npx playwright install --with-deps chromium
 npm run test:integration
+# Extended local pilot acceptance used by CI:
+npm run test:pilot
 ```
 
 The integration runner creates temporary users, nodes, and metadata. It verifies

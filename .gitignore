@@ -155,3 +155,7 @@ bin/
 *.tank-key.json
 *-credential.json
 *.credential.json
+
+# Python preparation-tool bytecode
+__pycache__/
+*.pyc

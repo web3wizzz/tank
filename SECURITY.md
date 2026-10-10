@@ -19,9 +19,10 @@ Individual credentials authorize one principal's files. Lists, metadata,
 retrieval, and registration status are scoped; unauthorized file IDs return 404.
 Administrators can access legacy and all files and repair storage. Provisioning,
 renewal, and revocation are local administrative commands. Node credentials grant
-internal shard access and belong only on trusted services. These services use
-HTTP locally; remote transport security and public-network operation are outside
-the supported MVP. Do not expose the coordinator or node ports publicly.
+internal shard access and belong only on trusted services. Go backends use HTTP on loopback; remote node endpoints require HTTPS with
+normal certificate validation and no redirects. Pilot templates support private
+per-node credentials and HTTPS proxies. Independent-machine/public-network
+operation has not yet been validated; do not expose raw backend ports publicly.
 
 The browser encrypts file contents and the original filename with AES-256-GCM
 using a fresh random key and IV per file. The key is downloaded to a recovery JSON

@@ -157,6 +157,18 @@ and restores the original bytes and filename. Keep another copy during the MVP.
 See the [browser encryption guide](tank/docs/browser-encryption.md) and
 [local MVP verification guide](tank/docs/local-mvp.md) for limits and tests.
 
+### Phase 2 pilot preparation
+
+[Separate-machine templates and operations](tank/docs/pilot-operations.md),
+[private backup/restore](tank/docs/backup-restore.md),
+[authenticated monitoring](tank/docs/monitoring.md), and
+[Base Sepolia preparation](tank/docs/base-sepolia-preparation.md) are available.
+The local drill (`npm run test:pilot` from `tank/frontend/`) verifies encrypted
+recovery after process loss, spare repair, coordinator restart, and metadata
+restore. It uses synthetic users/data and does not establish independent-machine
+or testnet deployment evidence. Actual hosts, signing, funding, retention terms,
+and deployment authorization remain operator decisions.
+
 ### Optional: enable local blockchain registration
 
 In a separate terminal, from the Go project directory:

@@ -133,10 +133,10 @@ spending, or destructive changes to existing local data are authorized.
 
 ## Blockers and next task
 
-No essential blocker. Phase 1 local backlog is complete and published, with all
-verification passing. There is no next Phase 1 task; stop here. Do not
-expand into production deployment, public chains, payments, signup, streaming,
-operator economics, or package publication.
+Phase 1 is complete and published, with all verification passing. The user has
+authorized Phase 2 local preparation below. Actual remote deployment/broadcast,
+paid infrastructure, payments, signup, streaming, rollup DA, and package
+publication remain outside current authorization.
 
 Known MVP limits are documented in SECURITY.md and the resource/browser guides:
 lost recovery keys cannot be recovered; copied sessions survive logout until
@@ -217,7 +217,7 @@ removing its restrictions.
   encrypted browser acceptance; non-broadcast Base Sepolia preparation.
 
 
-### Current milestone: reproducible local pilot acceptance
+### Completed milestone: reproducible local pilot acceptance — `a50aa6b`
 
 - Extended the owned temporary deployment to use four distinct node credentials.
 - Verified encrypted PDF retrieval after active-node process loss, automatic
@@ -231,6 +231,24 @@ removing its restrictions.
 - Coordinator race tests/vet/build and frontend 19 tests/lint/production build
   plus the full pilot drill passed. Browser CI now runs the stronger drill.
 - Evidence is explicitly local process-loss emulation, not independent machines
-  or testnet registration. Publication/Actions pending.
+  or testnet registration. All four Actions passed.
 - Next: offline Base Sepolia preparation/contract validation and readiness docs;
   real RPC/signer/hosts and deployment authorization remain absent.
+
+
+### Current milestone: Base Sepolia preparation and pilot handoff
+
+- Added a Foundry deployment script bound to chain 84532 and a nonzero selected
+  public sender. Offline tests simulate creation and reject wrong-chain/zero
+  sender configurations, without a network or private wallet.
+- Added unsigned bytecode plans, placeholder RPC/signer configuration, and an
+  optional HTTPS read-only eth_chainId preflight with redirects refused and
+  provider errors redacted. The preparation CLI rejects broadcast/signing args.
+- Contract formatting/build and 11 tests passed (including 256 fuzz runs); three
+  Python preparation tests and an actual unsigned bytecode-plan check passed.
+- Operator guides describe private TLS/storage/monitoring/backups, hardware sizing
+  assumptions, retention funding/operator exit, and local versus real evidence.
+- Publication/Actions verification pending. Once it passes, authorized local
+  preparation is complete; real pilot acceptance is still blocked by absent
+  host/RPC/signer/user decisions, signed-worker integration, and deployment
+  authorization. No real testnet or remote deployment has occurred.
