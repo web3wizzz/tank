@@ -107,5 +107,17 @@ then fix the reviewed frontend accessibility/responsiveness/error-handling issue
 - Added SECURITY.md with private reporting, trust boundaries, copied-session
   replay limits, key loss, local-chain restrictions, and private-state handling.
 - Reviewed examples against current APIs; all local documentation links pass.
-  Diff/private-artifact review passed. Publication/Actions pending.
+  Diff/private-artifact review passed. Published as `9b6ef73`; SDK Actions passed, Go Actions pending.
 - Next: contract/browser CI and full Go/SDK build coverage.
+
+## Completed milestone: CI coverage
+
+- Added browser tests/lint/build and isolated Go/browser integration on pushes/PRs.
+- Added contract formatting/build/tests with Foundry v1.8.4 and a pinned installer
+  action; all 8 local contract tests passed, including 256 fuzz cases.
+- Go formatting now includes public SDK/examples and builds every executable.
+  SDK CI runs for feature-branch pushes as well as main.
+- actionlint v1.7.12 passed for all four workflows; launcher 5 tests and broader
+  Go builds passed. Publication/Actions pending.
+- Next: final MVP review, registration worker failure/recovery regressions, and
+  full isolated verification.

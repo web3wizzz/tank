@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -40,11 +42,16 @@ jobs:
 
       - name: Check formatting
         run: |
-          unformatted="$(gofmt -l cmd internal)"
+          unformatted="$(gofmt -l cmd internal pkg examples)"
           if [ -n "$unformatted" ]; then
             printf 'Run gofmt on:\n%s\n' "$unformatted"
             exit 1
           fi
+
+      - name: Verify local launcher setup
+        run: |
+          bash -n scripts/*.sh
+          python3 scripts/test-local-env.py
 
       - name: Static checks
         run: go vet ./...
@@ -52,8 +59,7 @@ jobs:
       - name: Test with race detection
         run: go test -race -count=1 -timeout=5m ./...
 
-      - name: Build
+      - name: Build every service, CLI, and example
         run: |
-          go build -o bin/tank ./cmd/tank
-          go build -o bin/tank-node ./cmd/tank-node
-          go build -o bin/coordinator ./cmd/coordinator
+          go build ./cmd/...
+          go build ./examples/...

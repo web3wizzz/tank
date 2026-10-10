@@ -1,0 +1,55 @@
+name: Browser workspace CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tank/frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            tank/sdk-ts/package-lock.json
+            tank/frontend/package-lock.json
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tank/go.mod
+          cache-dependency-path: tank/go.sum
+      - name: Build linked SDK
+        run: |
+          npm --prefix ../sdk-ts ci
+          npm --prefix ../sdk-ts run build
+      - name: Install workspace dependencies
+        run: npm ci
+      - name: Test sessions and encryption
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Build production frontend
+        run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Verify isolated storage and browser integration
+        run: npm run test:integration
