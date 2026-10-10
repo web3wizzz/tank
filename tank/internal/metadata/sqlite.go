@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -35,7 +36,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", absolute)
+	db, err := sql.Open("sqlite", (&url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}).String())
 	if err != nil {
 		return nil, err
 	}

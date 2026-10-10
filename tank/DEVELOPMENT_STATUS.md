@@ -1,6 +1,6 @@
 # Tank Phase 1 development status
 
-Status: Phase 1 local MVP backlog complete. No unfinished implementation tasks.
+Status: Phase 1 complete; Phase 2 local pilot preparation in progress.
 
 Scope: complete the local MVP backlog below. Verified milestones may be committed
 and pushed to the existing origin; no deployments, force pushes, secret exposure,
@@ -146,3 +146,41 @@ assumes one process owns each directory; chain resets can stale recorded status.
 Private credentials, environment, backups, local storage, chain state, logs,
 dependencies, and build output remain ignored and untracked. Restored local
 services remain available; no deployment or existing-data deletion occurred.
+
+
+## Phase 2: reliable testnet pilot preparation
+
+User-authorized scope: configurable coordinator/four-node deployment templates,
+local machine-failure and backup/restart recovery drills, operator documentation,
+and Base Sepolia deployment scripts with placeholders. No remote provisioning,
+paid infrastructure, testnet broadcast, or deployment is authorized yet.
+
+Existing quotas and audit/repair scheduling will be reused. Independent reviews
+confirmed gaps in backups, authenticated monitoring, remote transport, per-node
+credentials, network-specific registration display, and public-chain signing.
+The local unlocked Anvil client must not be repurposed for public RPC merely by
+removing its restrictions.
+
+### Current milestone: private metadata backup/restore
+
+- Added online SQLite snapshots and `tank-backup`, with integrity/foreign-key
+  verification, mode-0600 output, atomic no-overwrite publication, source schema
+  preservation, and bounded deadlines.
+- Tests cover live WAL/concurrent writes, restored users/credentials/permissions,
+  filenames, manifests, durable jobs, cross-user isolation, destination refusal,
+  cancellation, and snapshot independence. Full Go race tests/vet/build passed.
+- Fixed SQLite path URI encoding so snapshots containing query punctuation
+  reopen as the intended file; regression verified. Publication/Actions pending.
+- Added backup/restore guide, including revocation reconciliation and separate
+  node-shard/user-key custody.
+
+### Phase 2 blockers and next tasks
+
+- Real hosts, failure domains, RPC endpoint, signer/custody, pilot users, and
+  deployment authorization are not selected. Do not invent them or broadcast.
+- Base Sepolia signed registration requires chain binding, bounded fees,
+  pre-broadcast durable transactions, nonce ownership, confirmations, and RPC
+  error redaction. Local Anvil validation remains separate.
+- Next: authenticated operational monitoring; remote-node TLS/credential setup;
+  deployment templates/operator retention promise; reproducible local failure,
+  restart/backup restore acceptance; offline Base Sepolia preparation scripts.
