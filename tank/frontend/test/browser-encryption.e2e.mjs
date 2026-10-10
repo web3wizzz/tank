@@ -243,6 +243,22 @@ try {
 
   await page.reload();
   await page.getByText("Storage connected", { exact: true }).waitFor();
+  if (process.env.TANK_E2E_PAGINATION === "1") {
+    assert.equal(await page.locator(".stored-file-list li").count(), 100);
+    const nextPage = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/tank/files" && new URL(response.url()).searchParams.has("after"));
+    await page.getByRole("button", { name: "Load more files", exact: true }).click();
+    assert.equal((await nextPage).status(), 200);
+    await page.getByText("More stored files loaded.", { exact: true }).waitFor();
+    assert.equal(await page.locator(".stored-file-list li").count(), 101);
+    assert.equal(await page.getByRole("button", { name: "Load more files", exact: true }).count(), 0);
+    const ids = await page.locator(".stored-file-list code").allTextContents();
+    assert.equal(new Set(ids).size, 101, "Pagination must not duplicate or drop stored files.");
+    const malformed = await page.evaluate(async () => (await fetch("/api/tank/files?after=invalid", {
+      headers: { "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin },
+    })).status);
+    assert.equal(malformed, 400);
+    console.log("PASS: browser loads all 101 files across pages without duplicates and rejects malformed cursors.");
+  }
   await page.getByLabel("File ID", { exact: true }).fill(keyData.file_id);
   await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "Choose the recovery key for this file first." }).waitFor();

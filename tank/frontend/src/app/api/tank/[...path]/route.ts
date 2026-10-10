@@ -162,7 +162,10 @@ export async function GET(request: Request, context: Context) {
     }
 
     if (path.length === 1 && path[0] === "files") {
-      return json({ file_ids: await (await client()).list() });
+      const after = new URL(request.url).searchParams.get("after") ?? "";
+      if (after) validateID(after);
+      const ids = await (await client()).list(after, { signal: request.signal });
+      return json({ file_ids: ids, next_after: ids.length === 100 ? ids[ids.length - 1] : null });
     }
 
     if (path.length === 2 && path[0] === "registrations") {

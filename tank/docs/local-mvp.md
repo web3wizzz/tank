@@ -73,6 +73,8 @@ The test verifies:
 - A ciphertext content ID and an ID-based storage filename, without sending the
   recovery key in requests.
 - A second user cannot list or retrieve the first user's file, even with its ID.
+- All 101 files can be loaded across pages without duplicates, and malformed
+  pagination cursors are rejected.
 - Retrieval after stopping one owned test storage node.
 - Reloaded sessions, missing/wrong recovery key rejection, correct PDF bytes,
   original download filename, and logout.

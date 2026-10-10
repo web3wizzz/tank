@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
+import { Tank } from "@tank-storage/sdk";
 
 // Everything created by this runner belongs to a separate temporary local stack.
 const frontend = fileURLToPath(new URL("..", import.meta.url));
@@ -120,16 +121,29 @@ try {
       TANK_E2E_UPSTREAM_URL: `http://127.0.0.1:${frontendPort}`,
       TANK_E2E_ACCESS_TOOL: join(directory, "bin", "access"),
       TANK_E2E_REPLACEMENT_FILE: join(directory, "alice-replacement.json"),
+      TANK_E2E_PAGINATION: "1",
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
   });
-  test.on("message", async (message) => {
+  let fixtures;
+  test.on("message", (message) => {
     if (message?.type === "upload-complete") {
-      await stop(nodes[0]);
-      if (test.connected) test.send({ type: "node-stopped" });
+      fixtures = (async () => {
+        const { token } = JSON.parse(await readFile(alice, "utf8"));
+        const sdk = new Tank({ baseURL: env.TANK_API_URL, token });
+        for (let index = 0; index < 100; index++) {
+          await sdk.tank(new TextEncoder().encode(`Pagination fixture ${index}`), { filename: `fixture-${index}.txt` });
+        }
+        await stop(nodes[0]);
+        if (test.connected) test.send({ type: "node-stopped" });
+      })();
+      fixtures.catch(() => {
+        if (test.connected) test.send({ type: "fixture-error" });
+      });
     }
   });
   await finished(test, "Browser integration");
+  await fixtures;
   console.log("PASS: isolated local MVP integration, with temporary users and data.");
 } finally {
   await cleanup();

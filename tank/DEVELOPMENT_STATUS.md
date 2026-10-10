@@ -18,19 +18,25 @@ spending, or destructive changes to existing local data are authorized.
   lint/build, five launcher tests, and isolated browser integration including node
   loss and revocation. No local data or existing credentials were removed.
 
-## Current milestone: authentication and account continuity
+### Authentication and account continuity — `d8183a6`
 
-- Replacement credentials preserve user identity, file permissions, and original
-  filenames. Existing credentials remain valid until expiration or explicit
-  revocation. Administrative metadata listings expose no token or token hash.
-- Issuance refuses existing destinations and symlinks; failed saves preserve
-  previous credentials and clean up only newly created credential artifacts.
-- Metadata and CLI regression tests pass. Browser integration verifies a revoked
-  credential cannot sign in, then a replacement credential retrieves the user's
-  existing encrypted PDF with the original recovery key.
-- Browser file-list pagination is implemented; its 101-file integration check is
-  in progress. Keep pagination changes separate from the credential commit.
-- Publication and GitHub Actions verification are pending.
+- Issuing a replacement credential retains the existing user's identity and file
+  permissions. Expired/revoked credentials do not prevent local administrative
+  recovery; unrelated users retain no access.
+- Added local `users`, `keys`, and `issue` commands. Listings omit tokens/hashes;
+  writes are private and refuse existing destinations and symlinks.
+- Validation: metadata/CLI regression tests, full Go race/vet/build checks,
+  frontend tests/lint/build, and browser recovery after credential replacement.
+- Pushed to origin/main. Tank CI and TypeScript SDK CI both passed.
+
+## Current milestone: browser file-list pagination
+
+- The workspace now fetches later pages and rejects malformed cursors. New uploads
+  no longer discard previously loaded file IDs; appended pages are deduplicated.
+- Verified all 101 stored files across pages, user isolation, encryption/recovery,
+  replacement credentials, and retrieval after stopping an owned test node.
+- Validation: frontend production build, lint, 17 unit tests, full isolated browser
+  integration, and diff checks pass. Publication/Actions check is pending.
 
 ## Remaining backlog, in order
 
@@ -54,5 +60,5 @@ spending, or destructive changes to existing local data are authorized.
 
 ## Next task
 
-Finish focused account-continuity/pagination commits, push each, inspect Actions,
-and fix failures before beginning resource limits and quotas.
+Push and verify the pagination milestone, then implement configurable request
+limits, storage quotas, and concurrency bounds.

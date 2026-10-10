@@ -100,6 +100,7 @@ export default function Workspace() {
   const [file, setFile] = useState<File | null>(null);
   const [fileID, setFileID] = useState("");
   const [ids, setIDs] = useState<string[]>([]);
+  const [nextAfter, setNextAfter] = useState<string | null>(null);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -118,6 +119,7 @@ export default function Workspace() {
         if (!controller.signal.aborted) {
           setConnected(true);
           setIDs(result.file_ids);
+          setNextAfter(result.next_after);
         }
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -169,12 +171,24 @@ export default function Workspace() {
         const response = await api("files");
         const result = await response.json();
         setIDs(result.file_ids);
+        setNextAfter(result.next_after);
         setConnected(true);
         setMessage("Storage connected. File list refreshed.");
       } catch (error) {
         setConnected(false);
         throw error;
       }
+    });
+  }
+
+  async function loadMoreFiles() {
+    if (!nextAfter) return;
+    await run("load-more", async () => {
+      const response = await api(`files?after=${encodeURIComponent(nextAfter)}`);
+      const result = await response.json();
+      setIDs((previous) => Array.from(new Set([...previous, ...result.file_ids])));
+      setNextAfter(result.next_after);
+      setMessage("More stored files loaded.");
     });
   }
 
@@ -229,7 +243,7 @@ export default function Workspace() {
       setRecovery(prepared.recovery);
       setFileID(result.file_id);
       setRegistration(null);
-      setIDs((previous) => [result.file_id, ...previous.filter((id) => id !== result.file_id)].slice(0, 100));
+      setIDs((previous) => [result.file_id, ...previous.filter((id) => id !== result.file_id)]);
       setPrepared(null);
       setFile(null);
       setMessage("Encrypted file tanked. Keep its recovery key to retrieve it later.");
@@ -498,7 +512,7 @@ export default function Workspace() {
             <h3>Stored files</h3>
             <p>Your files. Encrypted files need their matching recovery key.</p>
           </div>
-          <span className="small-label">FIRST PAGE · UP TO 100 FILES</span>
+          <span className="small-label">{ids.length} FILES LOADED</span>
         </div>
 
         {ids.length ? (
@@ -530,6 +544,12 @@ export default function Workspace() {
                 : "Start local storage, then refresh."}
             </p>
           </div>
+        )}
+        {nextAfter && (
+          <button type="button" className="button secondary full-width"
+            disabled={disabled} onClick={() => void loadMoreFiles()}>
+            {busy === "load-more" ? "Loading…" : "Load more files"}
+          </button>
         )}
       </article>
     </section>
