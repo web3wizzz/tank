@@ -121,5 +121,5 @@ and create no download; restarting that node permits verified recovery again.
 Revocation and credential renewal are checked against the restored database.
 
 The drill owns all its temporary processes and data. It emulates host loss locally;
-it is not evidence of independent physical machines or Base Sepolia registration.
+it is not evidence of independent physical machines or Arc Testnet registration.
 See [pilot operations](pilot-operations.md) for the eventual real-host acceptance.

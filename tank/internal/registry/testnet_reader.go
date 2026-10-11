@@ -27,6 +27,7 @@ type TestnetReader struct {
 	chain                *ethclient.Client
 	contract, registrant common.Address
 	abi                  abi.ABI
+	chainID              int64
 }
 
 type boundedRPCTransport struct{ base http.RoundTripper }
@@ -52,6 +53,9 @@ func OpenTestnetReader(ctx context.Context, cfg Config) (*TestnetReader, error) 
 	return openTestnetReader(ctx, cfg, &http.Client{})
 }
 func openTestnetReader(ctx context.Context, cfg Config, httpClient *http.Client) (*TestnetReader, error) {
+	if cfg.ChainID != ArcTestnetChainID {
+		return nil, ErrTestnetRPC
+	}
 	u, err := url.Parse(cfg.RPCURL)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" || !common.IsHexAddress(cfg.Contract) || !common.IsHexAddress(cfg.Registrant) || common.HexToAddress(cfg.Contract) == (common.Address{}) || common.HexToAddress(cfg.Registrant) == (common.Address{}) {
 		return nil, ErrTestnetRPC
@@ -75,7 +79,7 @@ func openTestnetReader(ctx context.Context, cfg Config, httpClient *http.Client)
 		connection.Close()
 		return nil, ErrTestnetRPC
 	}
-	reader := &TestnetReader{connection: connection, chain: ethclient.NewClient(connection), contract: common.HexToAddress(cfg.Contract), registrant: common.HexToAddress(cfg.Registrant), abi: parsed}
+	reader := &TestnetReader{chainID: cfg.ChainID, connection: connection, chain: ethclient.NewClient(connection), contract: common.HexToAddress(cfg.Contract), registrant: common.HexToAddress(cfg.Registrant), abi: parsed}
 	if err := reader.verifyNetwork(ctx); err != nil {
 		reader.Close()
 		return nil, err
@@ -90,7 +94,7 @@ func openTestnetReader(ctx context.Context, cfg Config, httpClient *http.Client)
 func (r *TestnetReader) Close() { r.connection.Close() }
 func (r *TestnetReader) verifyNetwork(ctx context.Context) error {
 	chain, err := r.chain.ChainID(ctx)
-	if err != nil || chain.Cmp(big.NewInt(84532)) != 0 {
+	if err != nil || chain.Cmp(big.NewInt(r.chainID)) != 0 {
 		return ErrTestnetRPC
 	}
 	return nil

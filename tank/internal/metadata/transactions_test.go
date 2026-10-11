@@ -30,7 +30,7 @@ func TestJournalMigrationPreservesSchemaSixAndStaleFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	account := "0x" + strings.Repeat("a", 40)
-	target := "84532:0x" + strings.Repeat("b", 40) + ":" + account
+	target := "5042002:0x" + strings.Repeat("b", 40) + ":" + account
 	if err := store.EnqueueRegistration(ctx, manifest.FileID, target); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestJournalMigrationPreservesSchemaSixAndStaleFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := []byte("opaque signed fixture bytes; cryptographic validation belongs to registry")
-	prepared := PreparedRegistration{ChainID: 84532, Account: account, FileID: job.FileID, Target: target, Nonce: 0, Hash: strings.ToLower(crypto.Keccak256Hash(raw).Hex()), Raw: raw}
+	prepared := PreparedRegistration{ChainID: 5042002, Account: account, FileID: job.FileID, Target: target, Nonce: 0, Hash: strings.ToLower(crypto.Keccak256Hash(raw).Hex()), Raw: raw}
 	if err := store.SavePreparedRegistration(ctx, job, prepared); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestJournalMigrationPreservesSchemaSixAndStaleFences(t *testing.T) {
 	if err := store.CompletePreparedRegistration(ctx, job, prepared); !errors.Is(err, ErrLeaseLost) {
 		t.Fatal("stale job confirmed account lane")
 	}
-	restored, err := store.PreparedRegistration(ctx, current, 84532, account)
+	restored, err := store.PreparedRegistration(ctx, current, 5042002, account)
 	if err != nil || string(restored.Raw) != string(raw) {
 		t.Fatal("lease expiry discarded prepared bytes")
 	}
@@ -84,7 +84,7 @@ func TestJournalMigrationPreservesSchemaSixAndStaleFences(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer backup.Close()
-	restored, err = backup.PreparedRegistration(ctx, current, 84532, account)
+	restored, err = backup.PreparedRegistration(ctx, current, 5042002, account)
 	if err != nil || restored.Hash != prepared.Hash || string(restored.Raw) != string(raw) {
 		t.Fatal("private backup lost outstanding signer lane")
 	}

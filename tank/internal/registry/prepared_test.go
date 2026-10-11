@@ -61,10 +61,10 @@ func signerFixture(t *testing.T) *offlineSigner {
 	return &offlineSigner{key: key}
 }
 func policyFixture(signer TransactionSigner) TestnetPolicy {
-	return TestnetPolicy{Contract: common.HexToAddress("0x1111111111111111111111111111111111111111"), Registrant: signer.Address(), MaxGas: 100000, MaxFeeWei: big.NewInt(10000000000), MaxTipWei: big.NewInt(1000000000), MaxExecutionCostWei: big.NewInt(1000000000000000), Confirmations: 12}
+	return TestnetPolicy{ChainID: ArcTestnetChainID, Contract: common.HexToAddress("0x1111111111111111111111111111111111111111"), Registrant: signer.Address(), MaxGas: 100000, MaxFeeWei: big.NewInt(40000000000), MaxTipWei: big.NewInt(1000000000), MaxExecutionCostWei: big.NewInt(4000000000000000), Confirmations: 12}
 }
 func termsFixture() TransactionTerms {
-	return TransactionTerms{Nonce: 0, Gas: 50000, FeeWei: big.NewInt(2000000000), TipWei: big.NewInt(100000000)}
+	return TransactionTerms{Nonce: 0, Gas: 50000, FeeWei: big.NewInt(20000000000), TipWei: big.NewInt(100000000)}
 }
 func prepareJob(t *testing.T, store *metadata.Store, policy TestnetPolicy, label string, lease time.Duration) metadata.RegistrationJob {
 	t.Helper()
@@ -158,7 +158,7 @@ func TestPreparedRejectsAlteredSignerIntentAndRedactsFailures(t *testing.T) {
 			if _, err := PrepareTestnetRegistration(ctx, store, job, policy, signer, termsFixture()); !errors.Is(err, ErrSigning) {
 				t.Fatal("altered signing intent accepted")
 			}
-			if _, err := store.PreparedRegistration(ctx, job, 84532, strings.ToLower(signer.Address().Hex())); !errors.Is(err, metadata.ErrNotFound) {
+			if _, err := store.PreparedRegistration(ctx, job, 5042002, strings.ToLower(signer.Address().Hex())); !errors.Is(err, metadata.ErrNotFound) {
 				t.Fatal("rejected signature persisted")
 			}
 		})
@@ -344,7 +344,7 @@ func TestPreparedRejectsCachedSenderWithMutatedSignature(t *testing.T) {
 	if _, err := PrepareTestnetRegistration(ctx, store, job, policy, signer, termsFixture()); !errors.Is(err, ErrSigning) {
 		t.Fatal("invalid signature passed cached sender validation")
 	}
-	if _, err := store.PreparedRegistration(ctx, job, 84532, strings.ToLower(signer.Address().Hex())); !errors.Is(err, metadata.ErrNotFound) {
+	if _, err := store.PreparedRegistration(ctx, job, 5042002, strings.ToLower(signer.Address().Hex())); !errors.Is(err, metadata.ErrNotFound) {
 		t.Fatal("invalid signature poisoned the account journal")
 	}
 }
@@ -360,7 +360,7 @@ func TestPreparedRejectsWrongSigningAccountAndMalformedJournal(t *testing.T) {
 		t.Fatal("another account's signature accepted")
 	}
 	raw := []byte("synthetic corrupt signed journal")
-	value := metadata.PreparedRegistration{ChainID: 84532, Account: strings.ToLower(policy.Registrant.Hex()), FileID: job.FileID, Target: job.Target, Hash: strings.ToLower(crypto.Keccak256Hash(raw).Hex()), Raw: raw}
+	value := metadata.PreparedRegistration{ChainID: 5042002, Account: strings.ToLower(policy.Registrant.Hex()), FileID: job.FileID, Target: job.Target, Hash: strings.ToLower(crypto.Keccak256Hash(raw).Hex()), Raw: raw}
 	if err := store.SavePreparedRegistration(ctx, job, value); err != nil {
 		t.Fatal(err)
 	}

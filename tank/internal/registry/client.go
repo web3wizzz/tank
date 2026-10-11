@@ -57,6 +57,7 @@ const contractABI = `[
 ]`
 
 type Config struct {
+	ChainID    int64
 	RPCURL     string
 	Contract   string
 	Registrant string
@@ -77,6 +78,9 @@ type Client struct {
 }
 
 func Open(ctx context.Context, cfg Config) (*Client, error) {
+	if cfg.ChainID != 0 && cfg.ChainID != LocalChainID {
+		return nil, fmt.Errorf("unlocked-account client requires local chain 31337")
+	}
 	u, err := url.Parse(cfg.RPCURL)
 	if err != nil || u.Host == "" ||
 		(u.Scheme != "http" && u.Scheme != "https") ||

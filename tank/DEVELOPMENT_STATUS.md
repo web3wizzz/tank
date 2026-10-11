@@ -316,7 +316,8 @@ Local validation includes full Go race/vet/build, focused security regressions,
 19 frontend tests/lint/build, 15 SDK tests in CI, 11 contract tests including 256
 fuzz runs, launcher/template/preparation checks, and schema7 pilot restore.
 
-The agreed local preparation tasks are complete. Real pilot completion is not
+The earlier Base Sepolia preparation is superseded by the Arc Testnet work below.
+The agreed earlier local preparation tasks are complete. Real pilot completion is not
 claimed. The user confirmed that actual hosts, RPC endpoint, and signing inputs
 are not selected and forbids remote provisioning or testnet broadcast for now.
 No real RPC/wallet/host was invented; no testnet transaction, remote deployment,
@@ -327,7 +328,7 @@ Remaining gates, before a real pilot:
 1. Select independent machines, stable HTTPS/DNS endpoints, operator custody,
    RPC provider, signing method, pilot users, and retention/funding/exit terms.
 2. Integrate the selected signer and an explicitly authorized submission/retry
-   adapter with the prepared journal/reader. Include Base L1/security fees and
+   adapter with the prepared journal/reader. Include Arc native USDC gas accounting and
    approved total-spend/balance policy; no public broadcaster is enabled now.
 3. Review a concrete deployment/simulation plan and obtain deployment/broadcast
    authorization, then execute and verify the selected testnet deployment.
@@ -340,3 +341,21 @@ collateral, larger/resumable transfers, rollup DA, or unrelated landing features
 Preserve private configuration, existing data, logs, backups, and generated
 artifacts; all remain ignored/untracked. Signed journals are private operational
 state even though they contain no recovery or signing key.
+
+
+### Arc milestone 1: explicit testnet roadmap and bounded chain policy
+
+- Arc Testnet replaces Base Sepolia as the first public target. Official network,
+  EVM, gas and tooling docs verified 2026-10-11; current endpoints use arc.io.
+- Deployment script, unsigned plan, templates and CI preparation checks now bind
+  chain 5042002. No public RPC default, wallet selection or broadcast is enabled.
+- Signed intent policy requires explicit Arc/local chain identity and enforces
+  Arc's 20 Gwei minimum fee cap. Journal targets retain chain/registry/registrant
+  namespaces; account nonce lanes remain exclusive across registry contracts.
+- Registry and guarded deployment: all 11 tests pass in standard Foundry and Arc
+  Foundry v0.8.0-2 with 256 fuzz cases. Python preparation checks pass.
+- Actual network deployment remains blocked on securely supplied selected RPC,
+  dedicated signer and testnet USDC funds, followed by separate authorization.
+  Arc registry deployment does not host frontend/coordinator/storage nodes.
+- Next independent preparation: secure custody adapter, signed worker recovery
+  and Arc-Anvil integration evidence. Historical Base milestones above are history.

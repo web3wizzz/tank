@@ -10,8 +10,8 @@ required for a future pilot. The read-only RPC adapter is prepared separately.
 
 `registry.PrepareTestnetRegistration` accepts a claimed durable registration job,
 a manifest in metadata, an explicit policy, transaction terms, and a caller-owned
-`TransactionSigner` interface. It constructs only the Tank registry call on Base
-Sepolia chain84532, with zero transferred value and explicit gas/fee caps. The
+`TransactionSigner` interface. It constructs only the Tank registry call on explicitly configured Arc Testnet
+chain 5042002 (or isolated local chain 31337), with zero transferred value and explicit gas/fee caps. The
 signer must honor cancellation and return a signature without broadcasting.
 
 The layer seals the authorized intent hash before calling the signer. It then
@@ -37,8 +37,8 @@ reorgs, insufficient depth, unqualified latest-state readback, and conflicting
 records leave the intent outstanding.
 
 The observation is trusted input from the future RPC adapter; this is not an
-Ethereum light client or a cryptographic proof of chain finality. L2 confirmation
-depth is distinct from L1 batch finality. See [Base finality](https://docs.base.org/specifications/transactions/transaction-finality).
+Ethereum light client or a cryptographic proof of chain finality. Arc finalizes
+on inclusion; use one canonical confirmation.
 
 ## Fee policy boundaries
 
@@ -47,9 +47,9 @@ maximum priority fee, and `MaxExecutionCostWei` for `gas × maxFeePerGas`.
 Negative/oversized values, estimates over caps, and arithmetic overflow-sized
 inputs are rejected before contacting the signer. No cap is raised automatically.
 
-This execution budget does **not** include Base's additional L1/security fee.
-The future broadcaster must include those fees and balance/spend reservations
-under the operator's approved total policy. See [official Base fees](https://docs.base.org/specifications/transactions/network-fees).
+Arc native fee values use 18-decimal USDC base units. The policy enforces the
+20 Gwei fee floor; total execution bounds and balance/spend reservations must
+remain within operator limits. Arc has no Base L1/security fee component.
 No aggregate wallet spending budget, fee replacement, or public broadcaster is
 implemented; preparation must not be presented as a complete cost guarantee.
 
@@ -74,7 +74,7 @@ confirmation/reorg/readback failures, stale completion, and nonce reuse/skip.
 The browser pilot drill separately verifies encrypted file/authorization recovery
 across machine-process loss and metadata snapshot restoration.
 
-The `TestnetReader` adapter uses a selected HTTPS provider, checks chain84532
+The `TestnetReader` adapter uses a selected HTTPS provider, checks chain5042002
 and code at the chosen registry, and exposes only pending nonce and canonical
 observations. Responses and time are bounded, redirects are refused, provider
 errors are redacted, and the chain is rechecked for every workflow. Registry
@@ -84,6 +84,6 @@ TLS fixtures. It checks code presence, not a deployed-bytecode fingerprint.
 
 Remaining public integration requires the selected dedicated signer/custody,
 authorized submission/retry adapter, immutable-byte rebroadcast with ambiguous-error handling,
-nonce discrepancy reconciliation, Base total-fee accounting, canonical block
+nonce discrepancy reconciliation, Arc native USDC fee accounting, canonical block
 queries, and explicit broadcast authorization. Do not activate a public worker
 by removing restrictions from the existing local client.

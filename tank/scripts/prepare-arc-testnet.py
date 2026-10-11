@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, HTTPRedirectHandler, build_opener
 
 PROJECT = Path(__file__).resolve().parents[1]
-CHAIN_ID = 84532
+CHAIN_ID = 5042002
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, request, file, code, message, headers, target):
@@ -43,16 +43,17 @@ def write_plan(destination):
     encoded = forge('inspect', 'src/TankRegistry.sol:TankRegistry', 'bytecode')
     if not re.fullmatch(r'0x[0-9a-fA-F]+', encoded) or len(encoded) % 2:
         raise PreparationError('Foundry returned invalid deployment bytecode.')
-    gas = os.environ.get('TANK_BASE_SEPOLIA_MAX_GAS', '1000000')
+    gas = os.environ.get('TANK_ARC_TESTNET_MAX_GAS', '1000000')
     if not gas.isdecimal() or not 21000 <= int(gas) <= 10000000:
         raise PreparationError('Deployment gas ceiling must be 21000–10000000.')
     plan = {
-        'version': 1, 'network': 'Base Sepolia', 'chain_id': CHAIN_ID,
+        'version': 1, 'network': 'Arc Testnet', 'chain_id': CHAIN_ID,
         'contract': 'TankRegistry', 'creation_bytecode': encoded,
         'creation_bytecode_sha256': hashlib.sha256(bytes.fromhex(encoded[2:])).hexdigest(),
-        'maximum_gas': int(gas), 'broadcast_enabled': False,
-        'required_inputs': ['TANK_BASE_SEPOLIA_RPC', 'TANK_BASE_SEPOLIA_SENDER',
-                            'TANK_BASE_SEPOLIA_ACCOUNT', 'deployment_authorization'],
+        'maximum_gas': int(gas), 'native_currency': 'USDC', 'native_decimals': 18,
+        'transaction_type': 2, 'minimum_fee_per_gas': 20000000000, 'broadcast_enabled': False,
+        'required_inputs': ['TANK_ARC_TESTNET_RPC', 'TANK_ARC_TESTNET_SENDER',
+                            'TANK_ARC_TESTNET_ACCOUNT', 'deployment_authorization'],
         'registration_worker_ready': False,
     }
     try:
@@ -67,7 +68,7 @@ def write_plan(destination):
 
 
 def check_rpc():
-    address = os.environ.get('TANK_BASE_SEPOLIA_RPC', '')
+    address = os.environ.get('TANK_ARC_TESTNET_RPC', '')
     try:
         parsed = urlsplit(address)
         if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
@@ -75,7 +76,7 @@ def check_rpc():
         if 'REPLACE_' in address:
             raise ValueError()
     except ValueError:
-        raise PreparationError('Configure the selected HTTPS Base Sepolia RPC privately.') from None
+        raise PreparationError('Configure the selected HTTPS Arc Testnet RPC privately.') from None
     payload = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'eth_chainId', 'params': []}).encode()
     request = Request(address, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
     try:
@@ -87,7 +88,7 @@ def check_rpc():
         if result.get('error') or result.get('id') != 1 or int(result.get('result', ''), 16) != CHAIN_ID:
             raise ValueError()
     except Exception:
-        raise PreparationError('RPC preflight failed or the endpoint is not Base Sepolia.') from None
+        raise PreparationError('RPC preflight failed or the endpoint is not Arc Testnet.') from None
 
 
 def run(arguments):
@@ -98,10 +99,10 @@ def run(arguments):
         return 'Registry validated locally; no network or wallet was used.'
     if len(arguments) == 3 and arguments[:2] == ['plan', '--out']:
         write_plan(arguments[2])
-        return 'Private unsigned Base Sepolia deployment plan created; broadcasting remains disabled.'
+        return 'Private unsigned Arc Testnet deployment plan created; broadcasting remains disabled.'
     if arguments == ['check-rpc']:
         check_rpc()
-        return 'Selected RPC reports Base Sepolia chain ID 84532; no transaction was sent.'
+        return 'Selected RPC reports Arc Testnet chain ID 5042002; no transaction was sent.'
     raise PreparationError('Use validate-contracts, plan --out NEW_PATH, or check-rpc. Signing and broadcasting are disabled.')
 
 

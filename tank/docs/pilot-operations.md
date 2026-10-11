@@ -4,6 +4,11 @@ These are configurable preparation templates, not a deployed pilot. Actual hosts
 RPC provider, signer, users, funding, and remote deployment approval are pending.
 Do not use placeholders as real hosts, keys, or service configuration.
 
+Arc Testnet is the first public registry target. Follow
+[Arc preparation](arc-testnet-preparation.md) before any mainnet deployment.
+The registry deployment is separate from frontend/coordinator hosting and the
+independent storage machines; Arc does not store file shards.
+
 ## Topology and capacity
 
 Use three active storage machines and a fourth unused spare, each on independent

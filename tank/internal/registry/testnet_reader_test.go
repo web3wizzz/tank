@@ -38,7 +38,7 @@ func fixtureReader(t *testing.T) *readRPCFixture {
 	record[0] = 1
 	binary.BigEndian.PutUint64(record[56:64], 10)
 	binary.BigEndian.PutUint64(record[88:96], 123)
-	return &readRPCFixture{chainID: "0x14a34", code: "0x01", header: header, receipt: &types.Receipt{TxHash: common.HexToHash("0x1234"), Status: 1, BlockHash: header.Hash(), BlockNumber: big.NewInt(10), Logs: []*types.Log{}}, record: record}
+	return &readRPCFixture{chainID: "0x4cef52", code: "0x01", header: header, receipt: &types.Receipt{TxHash: common.HexToHash("0x1234"), Status: 1, BlockHash: header.Hash(), BlockNumber: big.NewInt(10), Logs: []*types.Log{}}, record: record}
 }
 func (f *readRPCFixture) handler(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
@@ -100,7 +100,7 @@ func TestTestnetReaderUsesOnlyChainBoundCanonicalReads(t *testing.T) {
 	fixture := fixtureReader(t)
 	server := httptest.NewTLSServer(http.HandlerFunc(fixture.handler))
 	defer server.Close()
-	cfg := workerConfig(server.URL + "/synthetic-private-provider-path")
+	cfg := arcReaderConfig(server.URL + "/synthetic-private-provider-path")
 	reader, err := openTestnetReader(context.Background(), cfg, server.Client())
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +140,7 @@ func TestTestnetReaderRejectsWrongChainMissingCodeAndUntrustedTLS(t *testing.T) 
 			}
 			server := httptest.NewTLSServer(http.HandlerFunc(fixture.handler))
 			defer server.Close()
-			cfg := workerConfig(server.URL)
+			cfg := arcReaderConfig(server.URL)
 			var err error
 			switch mode {
 			case "untrusted_tls":
@@ -166,7 +166,7 @@ func TestTestnetReaderDetectsReorgAndRedactsProviderErrors(t *testing.T) {
 			fixture := fixtureReader(t)
 			server := httptest.NewTLSServer(http.HandlerFunc(fixture.handler))
 			defer server.Close()
-			reader, err := openTestnetReader(context.Background(), workerConfig(server.URL), server.Client())
+			reader, err := openTestnetReader(context.Background(), arcReaderConfig(server.URL), server.Client())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -195,7 +195,7 @@ func TestTestnetReaderRefusesRedirectsAndHonorsCallerDeadline(t *testing.T) {
 	defer destination.Close()
 	redirect := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, destination.URL, 302) }))
 	defer redirect.Close()
-	if reader, err := openTestnetReader(context.Background(), workerConfig(redirect.URL), redirect.Client()); err == nil {
+	if reader, err := openTestnetReader(context.Background(), arcReaderConfig(redirect.URL), redirect.Client()); err == nil {
 		reader.Close()
 		t.Fatal("provider redirect accepted")
 	}
@@ -210,7 +210,7 @@ func TestTestnetReaderRefusesRedirectsAndHonorsCallerDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	started := time.Now()
-	if reader, err := openTestnetReader(ctx, workerConfig(stalled.URL), stalled.Client()); err == nil {
+	if reader, err := openTestnetReader(ctx, arcReaderConfig(stalled.URL), stalled.Client()); err == nil {
 		reader.Close()
 		t.Fatal("stalled reader succeeded")
 	}
@@ -221,13 +221,19 @@ func TestTestnetReaderRefusesRedirectsAndHonorsCallerDeadline(t *testing.T) {
 
 func TestTestnetReaderBoundsProviderResponse(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body := `{"jsonrpc":"2.0","id":1,"result":"0x14a34"}` + strings.Repeat(" ", 1<<20)
+		body := `{"jsonrpc":"2.0","id":1,"result":"0x4cef52"}` + strings.Repeat(" ", 1<<20)
 		w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 		w.Write([]byte(body))
 	}))
 	defer server.Close()
-	if reader, err := openTestnetReader(context.Background(), workerConfig(server.URL), server.Client()); err == nil {
+	if reader, err := openTestnetReader(context.Background(), arcReaderConfig(server.URL), server.Client()); err == nil {
 		reader.Close()
 		t.Fatal("oversized provider response accepted")
 	}
+}
+
+func arcReaderConfig(url string) Config {
+	c := workerConfig(url)
+	c.ChainID = ArcTestnetChainID
+	return c
 }

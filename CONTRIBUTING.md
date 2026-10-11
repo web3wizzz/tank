@@ -103,7 +103,7 @@ For launcher changes, from the Go project directory:
 bash -n scripts/*.sh
 python3 scripts/test-local-env.py
 python3 scripts/test-pilot-templates.py
-python3 scripts/test-base-sepolia.py
+python3 scripts/test-arc-testnet.py
 ```
 
 For SDK changes, from `tank/sdk-ts/`:
@@ -191,6 +191,7 @@ Include:
 For node or chain failures, describe which process stopped and whether state was preserved.
 
 Redact tokens, RPC credentials, private keys, and private file contents from logs.
+
 
 ## Report a security issue
 

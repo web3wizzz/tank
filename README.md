@@ -162,7 +162,7 @@ See the [browser encryption guide](tank/docs/browser-encryption.md) and
 [Separate-machine templates and operations](tank/docs/pilot-operations.md),
 [private backup/restore](tank/docs/backup-restore.md),
 [authenticated monitoring](tank/docs/monitoring.md), and
-[Base Sepolia preparation](tank/docs/base-sepolia-preparation.md) are available.
+[Arc Testnet preparation](tank/docs/arc-testnet-preparation.md) are available.
 The local drill (`npm run test:pilot` from `tank/frontend/`) verifies encrypted
 recovery after process loss, spare repair, coordinator restart, and metadata
 restore. It uses synthetic users/data and does not establish independent-machine

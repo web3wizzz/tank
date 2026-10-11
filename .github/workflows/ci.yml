@@ -53,7 +53,7 @@ jobs:
           bash -n scripts/*.sh
           python3 scripts/test-local-env.py
           python3 scripts/test-pilot-templates.py
-          python3 scripts/test-base-sepolia.py
+          python3 scripts/test-arc-testnet.py
 
       - name: Static checks
         run: go vet ./...

@@ -28,6 +28,10 @@ func NewWorker(store *metadata.Store, cfg Config) (*Worker, error) {
 		return nil, errors.New("registration worker requires a metadata store")
 	}
 
+	if cfg.ChainID != 0 && cfg.ChainID != LocalChainID {
+		return nil, errors.New("unlocked worker requires local chain 31337")
+	}
+	cfg.ChainID = LocalChainID
 	u, err := url.Parse(cfg.RPCURL)
 	if err != nil || u == nil {
 		return nil, errors.New("invalid chain RPC URL")
