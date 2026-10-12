@@ -163,6 +163,12 @@ See the [browser encryption guide](tank/docs/browser-encryption.md) and
 [private backup/restore](tank/docs/backup-restore.md),
 [authenticated monitoring](tank/docs/monitoring.md), and
 [Arc Testnet preparation](tank/docs/arc-testnet-preparation.md) are available.
+Arc Testnet is the first public blockchain target; testnet acceptance must precede
+mainnet work. Secure offline signing and Arc-compatible local recovery checks are
+available; public broadcasting remains disabled. Arc hosts the commitment
+registry. The frontend, coordinator, and independent storage nodes require their
+own hosting and operational acceptance.
+
 The local drill (`npm run test:pilot` from `tank/frontend/`) verifies encrypted
 recovery after process loss, spare repair, coordinator restart, and metadata
 restore. It uses synthetic users/data and does not establish independent-machine

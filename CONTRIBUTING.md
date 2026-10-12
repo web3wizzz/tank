@@ -43,6 +43,14 @@ bash scripts/run-anvil.sh
 
 Follow the [README](README.md#optional-enable-local-blockchain-registration) for deployment and chain configuration.
 
+For Arc compatibility changes, follow the
+[Arc preparation guide](tank/docs/arc-testnet-preparation.md) and run
+`bash scripts/test-arc-local.sh` from `tank/` with the explicit pinned Arc Forge
+and Anvil paths. Contract CI preserves the standard Foundry checks and adds Arc
+execution, signed registration, native gas accounting and restart recovery.
+Tests use isolated generated accounts and loopback nodes. Remote RPC, signing
+credentials and gas funds are operator inputs, never CI fixtures.
+
 Keep local tokens, databases, snapshots, and test file contents out of commits.
 
 ## Make a change

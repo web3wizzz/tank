@@ -35,3 +35,25 @@ jobs:
         run: forge build
       - name: Test registry and fuzz invariants
         run: forge test
+
+  arc-local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tank
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tank/go.mod
+          cache-dependency-path: tank/go.sum
+      - name: Install checksum-pinned Arc Foundry
+        run: bash scripts/install-arc-foundry.sh "$RUNNER_TEMP/tank-arc-foundry"
+      - name: Arc contracts, native gas, signed registration and restart recovery
+        env:
+          TANK_ARC_FORGE_BIN: ${{ runner.temp }}/tank-arc-foundry/arc-forge
+          TANK_ARC_ANVIL_BIN: ${{ runner.temp }}/tank-arc-foundry/arc-anvil
+        run: bash scripts/test-arc-local.sh

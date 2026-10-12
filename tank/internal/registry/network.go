@@ -1,6 +1,6 @@
 package registry
 
-// Arc parameters verified against official docs on 2026-10-11. RPC selection
+// Arc parameters verified against official docs on 2026-10-12. RPC selection
 // stays private and explicit; no production endpoint is chosen by this package.
 const (
 	LocalChainID      int64 = 31337

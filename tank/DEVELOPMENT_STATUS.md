@@ -361,7 +361,7 @@ state even though they contain no recovery or signing key.
   and Arc-Anvil integration evidence. Historical Base milestones above are history.
 
 
-### Arc milestone 2: offline custody and recoverable signed worker
+### Arc milestone 2: offline custody and recoverable signed worker — `620fc1d`
 
 - Added encrypted V3 keystore signing with private owned-file checks, symlink
   refusal, address binding, redacted errors, and Arc type-2/zero-value restrictions.
@@ -376,3 +376,30 @@ state even though they contain no recovery or signing key.
   pending; tests use generated isolated accounts only.
 - Remaining public gate: securely supplied RPC, dedicated signer and testnet USDC,
   aggregate spend/submission policy and separate broadcast authorization.
+
+
+### Arc milestone 3: reproducible Arc execution and CI acceptance
+
+- Reverified official connection, EVM and gas documentation on 2026-10-12. Current
+  testnet chain5042002 and arc.io endpoints remain explicit reference parameters,
+  never an automatic operational RPC selection. Mainnet remains excluded.
+- Added official Arc Foundry v0.8.0-2 installation pinned by archive SHA-256 and
+  commit, with an Arc-only loopback integration script and Contract CI job.
+- Local Arc tests deploy TankRegistry with a generated signer, prepare and submit
+  signed registration only to owned nodes, verify receipt-native USDC gas costs,
+  retry absent receipts/exact bytes, and reopen SQLite before canonical completion
+  without signing again. Transaction types0/1/2/4 execute successfully locally.
+- Forbidden nonzero zero-address transfer fails on execution. Arc Anvil's estimate
+  alone did not reject it; successful receipts/readback remain mandatory. Native
+  precision is 18 decimals, following official tables/EVM docs; their conflicting
+  6-decimal native-send example is explicitly documented and not copied.
+- Validation passed: 11 standard and 11 Arc contract tests with 256 fuzz runs,
+  both Arc Go integration tests with race detection, full Go race suite, vet/build,
+  module verification, shell syntax, and Python launcher/template/preparation
+  tests. README, contributor guide, examples and worker docs reflect these gates.
+- Custody milestone620fc1d pushed to origin/main. Public-network/provider acceptance
+  remains untested while selected RPC, dedicated signer and USDC funds are pending.
+  No public transaction, paid provisioning, or mainnet deployment was performed.
+- Registry deployment and frontend/coordinator/independent storage hosting retain
+  separate acceptance requirements. Future submission integration and aggregate
+  spend policy remain prerequisites to any authorized public deployment.
