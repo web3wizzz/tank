@@ -44,6 +44,11 @@ func authTestManifest(t *testing.T) metadata.Manifest {
 }
 
 func TestHTTPUserIsolation(t *testing.T) {
+	t.Run("local", func(t *testing.T) { testHTTPUserIsolation(t, false) })
+	t.Run("external Arc", func(t *testing.T) { testHTTPUserIsolation(t, true) })
+}
+
+func testHTTPUserIsolation(t *testing.T, externalArc bool) {
 	ctx := context.Background()
 	store, err := metadata.Open(ctx, filepath.Join(t.TempDir(), "tank.sqlite"))
 	if err != nil {
@@ -94,6 +99,27 @@ func TestHTTPUserIsolation(t *testing.T) {
 	}
 	target := "31337:0x5fbdb2315678afecb367f032d93f642f64180aa3:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 	handler := newRegistrationHandler(base, service, store, admin, target)
+	if externalArc {
+		contract := "0x11111111111111111111111111111111111111Aa"
+		registrant := "0x22222222222222222222222222222222222222Bb"
+		target = "5042002:" + strings.ToLower(contract) + ":" + strings.ToLower(registrant)
+		handler, err = NewHandlerWithExternalArcRegistration(service, store, admin, 5042002, contract, registrant)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// A different chain's state must never be surfaced as Arc state.
+		localTarget := "31337:" + strings.ToLower(contract) + ":" + strings.ToLower(registrant)
+		if err := store.EnqueueRegistration(ctx, m.FileID, localTarget); err != nil {
+			t.Fatal(err)
+		}
+		job, err := store.ClaimRegistration(ctx, localTarget, time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.CompleteRegistration(ctx, job); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	request := func(method, path, token string) *httptest.ResponseRecorder {
 		t.Helper()
@@ -156,11 +182,63 @@ func TestHTTPUserIsolation(t *testing.T) {
 	if info.Filename != "alice-name.pdf" {
 		t.Fatalf("user received another user's filename: %q", info.Filename)
 	}
+	if externalArc {
+		assertStatus := func(want, transaction string) {
+			t.Helper()
+			w := request("GET", "/registrations/"+m.FileID, aliceToken)
+			var response struct {
+				Target      string `json:"target"`
+				Status      string `json:"status"`
+				Transaction string `json:"transaction_hash"`
+			}
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &response) != nil || response.Target != target || response.Status != want || response.Transaction != transaction {
+				t.Fatalf("external journal state mismatch: %d %s", w.Code, w.Body.String())
+			}
+			if denied := request("GET", "/registrations/"+m.FileID, bobToken); denied.Code != 404 {
+				t.Fatal("external registration disclosed across users")
+			}
+		}
+		assertStatus("not_queued", "")
+		if err := store.EnqueueRegistration(ctx, m.FileID, target); err != nil {
+			t.Fatal(err)
+		}
+		assertStatus("pending", "")
+		job, err := store.ClaimRegistration(ctx, target, time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		transaction := "0x" + strings.Repeat("1", 64)
+		if err := store.SaveRegistrationTransaction(ctx, job, transaction); err != nil {
+			t.Fatal(err)
+		}
+		assertStatus("submitted", transaction)
+		if err := store.CompleteRegistration(ctx, job); err != nil {
+			t.Fatal(err)
+		}
+		assertStatus("registered", transaction)
+	}
 
 	if err := store.RevokeAccessKey(ctx, aliceKey.ID); err != nil {
 		t.Fatal(err)
 	}
 	if w := request("GET", "/registrations/"+m.FileID, aliceToken); w.Code != 401 {
 		t.Fatalf("revoked credential accepted: %d", w.Code)
+	}
+}
+
+func TestExternalArcRegistrationRejectsMainnetAndInvalidAddresses(t *testing.T) {
+	address := "0x1111111111111111111111111111111111111111"
+	for _, chain := range []int64{0, 1, 5042, 31337, 84532} {
+		if _, err := NewHandlerWithExternalArcRegistration(nil, nil, "", chain, address, address); err == nil {
+			t.Fatalf("accepted chain %d", chain)
+		}
+	}
+	for _, invalid := range []string{"", "invalid", "0x0000000000000000000000000000000000000000"} {
+		if _, err := NewHandlerWithExternalArcRegistration(nil, nil, "", 5042002, invalid, address); err == nil {
+			t.Fatal("invalid registry accepted")
+		}
+		if _, err := NewHandlerWithExternalArcRegistration(nil, nil, "", 5042002, address, invalid); err == nil {
+			t.Fatal("invalid signer accepted")
+		}
 	}
 }

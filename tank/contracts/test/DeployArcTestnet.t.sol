@@ -20,6 +20,18 @@ contract DeployArcTestnetTest {
         deployment.run();
     }
 
+    function testRejectsArcAndEthereumMainnetBeforeReadingSigner() public {
+        uint256[5] memory forbidden = [uint256(5042), 1, 0, 84532, 31337];
+        // A valid sender must never bypass the chain gate.
+        vm.setEnv("TANK_ARC_TESTNET_SENDER", "0x1111111111111111111111111111111111111111");
+        DeployArcTestnet deployment = new DeployArcTestnet();
+        for (uint256 i; i < forbidden.length; i++) {
+            vm.chainId(forbidden[i]);
+            vm.expectRevert(DeployArcTestnet.WrongChain.selector);
+            deployment.run();
+        }
+    }
+
     function testRejectsZeroSender() public {
         vm.chainId(5042002);
         vm.setEnv("TANK_ARC_TESTNET_SENDER", "0x0000000000000000000000000000000000000000");

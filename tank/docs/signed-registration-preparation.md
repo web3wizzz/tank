@@ -1,11 +1,13 @@
-# Offline signed-registration preparation
+# Signed registration preparation and authorized Arc Testnet submission
 
-The new internal preparation/journal layer does not select a wallet, connect to
-an RPC, submit a transaction, or enable the public registration worker. The
+The preparation/journal layer defaults to signing and observation without
+submission. Explicit `tank-prepare-registration --broadcast` now enables the
+guarded Arc Testnet submitter after private configuration and exact runtime
+verification. See [deployment and setup](arc-testnet-deployment.md). The
 existing local unlocked-account client stays restricted to Anvil chain31337.
 An offline encrypted-keystore custody adapter and read-only RPC adapter are
-available. Operator custody selection and an explicitly authorized submission
-path are still required for a future pilot.
+available. Operator custody selection and public-provider acceptance are still
+required for the pilot; testnet-only broadcast authorization has been supplied.
 
 ## What is implemented locally
 
@@ -51,8 +53,10 @@ inputs are rejected before contacting the signer. No cap is raised automatically
 Arc native fee values use 18-decimal USDC base units. The policy enforces the
 20 Gwei fee floor; total execution bounds and balance/spend reservations must
 remain within operator limits. Arc has no Base L1/security fee component.
-No aggregate wallet spending budget, fee replacement, or public broadcaster is
-implemented; preparation must not be presented as a complete cost guarantee.
+Authorized mode reserves every transaction ceiling in a durable schema8
+aggregate registration budget before submission. Retries charge the same hash
+once. Deployment has a separate cap. Fee replacement is not implemented; other
+journals/tools must not share the dedicated account.
 
 ## State custody and upgrades
 
@@ -100,7 +104,8 @@ configuration is supplied, it estimates fees/gas, checks native USDC balance,
 signs and journals a registration intent, and checks canonical observations.
 `SignedWorker` retries with bounded backoff; absent/reverted receipts preserve the
 same signed bytes and account lane. Restart reconciles persisted transactions
-without requesting another signature or estimate. It never submits transactions.
+without requesting another signature or estimate. Default mode never submits
+transactions; `--broadcast` uses the guarded submitter.
 
 Build it with `go build -o bin/tank-prepare-registration ./cmd/tank-prepare-registration`.
 Use the placeholder names in `deploy/arc-testnet/testnet.conf.example`, configured
@@ -115,8 +120,9 @@ and a 20% gas margin within the explicit caps, then checks that native balance
 covers `gasLimit * maxFeePerGas`. This checks one intent, not aggregate spending.
 Fee/balance/provider failures stop preparation before signing.
 
-Remaining public integration requires selected dedicated custody, an authorized
-submission/retry adapter, immutable-byte rebroadcast with ambiguous-error handling,
-nonce discrepancy reconciliation, an aggregate spend policy, and explicit
-broadcast authorization. Do not activate a public worker by removing restrictions
+Public acceptance still requires selected dedicated custody, working RPC, faucet
+funding and an encrypted-file pilot run. Authorized submission and immutable-byte
+retry/restart handling plus aggregate spend reservations are implemented and
+verified locally. A remote signer service has not been selected or integrated.
+Do not activate a public worker by removing restrictions
 from the existing local client.

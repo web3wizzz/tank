@@ -34,7 +34,7 @@ func TestJournalMigrationPreservesSchemaSixAndStaleFences(t *testing.T) {
 	if err := store.EnqueueRegistration(ctx, manifest.FileID, target); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.ExecContext(ctx, "DROP TABLE registration_transactions; PRAGMA user_version=6"); err != nil {
+	if _, err := store.db.ExecContext(ctx, "DROP TABLE registration_spend_reservations; DROP TABLE registration_spend_accounts; DROP TABLE registration_transactions; PRAGMA user_version=6"); err != nil {
 		t.Fatal(err)
 	}
 	store.Close()

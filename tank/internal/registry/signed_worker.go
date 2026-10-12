@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"tank.local/tank/internal/integrity"
 	"tank.local/tank/internal/metadata"
 )
@@ -19,14 +20,37 @@ type PreparationReader interface {
 	Observation(context.Context, common.Hash, integrity.Hash) (ConfirmedObservation, error)
 }
 
-// SignedWorker prepares and reconciles intents, but cannot broadcast. It is
-// separate from the local unlocked worker, whose RPC restrictions stay intact.
+// AuthorizedSubmitter receives only validated, durably journaled transactions.
+// Implementations must independently verify the selected network before sending.
+type AuthorizedSubmitter interface {
+	Submit(context.Context, *types.Transaction, TestnetPolicy) error
+}
+
+// SignedWorker prepares and reconciles intents. Submission requires the explicit
+// broadcast constructor; the local unlocked worker's RPC restrictions stay intact.
 type SignedWorker struct {
-	store      *metadata.Store
-	policy     TestnetPolicy
-	signer     TransactionSigner
-	reader     PreparationReader
-	retryDelay time.Duration
+	store           *metadata.Store
+	policy          TestnetPolicy
+	signer          TransactionSigner
+	reader          PreparationReader
+	retryDelay      time.Duration
+	submitter       AuthorizedSubmitter
+	aggregateBudget *big.Int
+}
+
+// NewBroadcastSignedWorker is an explicit opt-in for authorized Arc Testnet
+// submission. NewSignedWorker remains preparation-only.
+func NewBroadcastSignedWorker(store *metadata.Store, p TestnetPolicy, signer TransactionSigner, reader PreparationReader, submitter AuthorizedSubmitter, aggregateBudget *big.Int) (*SignedWorker, error) {
+	if submitter == nil || !positive256(aggregateBudget) {
+		return nil, ErrPreparation
+	}
+	w, err := NewSignedWorker(store, p, signer, reader)
+	if err != nil {
+		return nil, err
+	}
+	w.submitter = submitter
+	w.aggregateBudget = new(big.Int).Set(aggregateBudget)
+	return w, nil
 }
 
 func NewSignedWorker(store *metadata.Store, p TestnetPolicy, signer TransactionSigner, reader PreparationReader) (*SignedWorker, error) {
@@ -101,7 +125,8 @@ func (w *SignedWorker) processJob(ctx context.Context, job metadata.Registration
 	} else if err != nil {
 		return journalError(err)
 	}
-	if _, err := decodePrepared(value, w.policy, data); err != nil {
+	transaction, err := decodePrepared(value, w.policy, data)
+	if err != nil {
 		return err
 	}
 	id, err := integrity.ParseHash(m.FileID)
@@ -110,6 +135,16 @@ func (w *SignedWorker) processJob(ctx context.Context, job metadata.Registration
 	}
 	observation, err := w.reader.Observation(ctx, common.HexToHash(value.Hash), id)
 	if err != nil {
+		if w.submitter != nil {
+			if err := w.store.ReserveRegistrationSpend(ctx, job, value, w.aggregateBudget); err != nil {
+				return ErrSubmission
+			}
+			// A missing or ambiguous receipt permits rebroadcast of identical
+			// bytes only. No new nonce, signature or fee replacement is created.
+			if err := w.submitter.Submit(ctx, transaction, w.policy); err != nil {
+				return ErrSubmission
+			}
+		}
 		return ErrConfirmation
 	}
 	return ConfirmPreparedRegistration(ctx, w.store, job, w.policy, observation)

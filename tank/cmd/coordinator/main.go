@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +17,21 @@ import (
 	"tank.local/tank/internal/metadata"
 	"tank.local/tank/internal/node"
 )
+
+func registrationHandler(service *coordinator.Service, store *metadata.Store) (http.Handler, error) {
+	switch os.Getenv("TANK_REGISTRATION_MODE") {
+	case "", "local":
+		return coordinator.NewHandlerWithRegistration(service, store, os.Getenv("TANK_API_TOKEN"), os.Getenv("TANK_CHAIN_RPC"), os.Getenv("TANK_REGISTRY_ADDR"), os.Getenv("TANK_REGISTRANT"))
+	case "arc-testnet-external":
+		chainID, err := strconv.ParseInt(os.Getenv("TANK_CHAIN_ID"), 10, 64)
+		if err != nil {
+			return nil, errors.New("external Arc registration requires explicit testnet chain ID")
+		}
+		return coordinator.NewHandlerWithExternalArcRegistration(service, store, os.Getenv("TANK_API_TOKEN"), chainID, os.Getenv("TANK_REGISTRY_ADDR"), os.Getenv("TANK_ARC_TESTNET_SENDER"))
+	default:
+		return nil, errors.New("unknown registration mode")
+	}
+}
 
 func run() error {
 	cfg, err := config.Load()
@@ -39,14 +55,7 @@ func run() error {
 		return err
 	}
 
-	handler, err := coordinator.NewHandlerWithRegistration(
-		service,
-		store,
-		os.Getenv("TANK_API_TOKEN"),
-		os.Getenv("TANK_CHAIN_RPC"),
-		os.Getenv("TANK_REGISTRY_ADDR"),
-		os.Getenv("TANK_REGISTRANT"),
-	)
+	handler, err := registrationHandler(service, store)
 	if err != nil {
 		return err
 	}

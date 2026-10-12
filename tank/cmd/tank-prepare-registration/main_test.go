@@ -1,10 +1,23 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestBroadcastRejectsMainnetAndUnexpectedNetworksBeforeCustody(t *testing.T) {
+	previous := os.Args
+	defer func() { os.Args = previous }()
+	os.Args = []string{"tank-prepare-registration", "--broadcast"}
+	for _, chain := range []string{"5042", "1", "31337", "84532", "", "5042001"} {
+		t.Setenv("TANK_CHAIN_ID", chain)
+		if err := run(); !errors.Is(err, invalid) {
+			t.Fatalf("unexpected network %q reached custody: %v", chain, err)
+		}
+	}
+}
 
 func TestPrivateJournalRejectsPublicDirectoryAndSymlinkState(t *testing.T) {
 	dir := t.TempDir()

@@ -1,9 +1,10 @@
 # Arc Testnet registry preparation
 
 Arc is Tank's first public blockchain target, replacing Base Sepolia. Testnet
-acceptance must precede any mainnet consideration. This is preparation, not a
-public deployment. RPC selection, dedicated signing account and testnet USDC
-funding remain pending through secure configuration. Never supply secrets in chat.
+acceptance must precede any mainnet consideration. Guarded deployment and explicit
+worker broadcasting are now implemented; see [deployment setup](arc-testnet-deployment.md).
+RPC connectivity, dedicated signing account and testnet USDC funding remain pending
+through secure configuration. Never supply secrets in chat.
 
 ## Verified network and tooling (2026-10-12)
 
@@ -82,8 +83,9 @@ The Python tool rejects signing and broadcasting. `check-rpc` uses only
 the selected RPC is supplied privately. No public endpoint was contacted by tests.
 
 `contracts/script/DeployArcTestnet.s.sol` refuses other chains and zero senders.
-Local tests simulate creation without any wallet/network. Real operator execution
-requires separate authorization, a reviewed encrypted keystore/hardware signer,
+Local tests simulate creation without any wallet/network. The user has authorized
+testnet-only execution once prerequisites pass. Use the guarded CLI in the
+deployment guide, with a dedicated encrypted keystore,
 current estimates, USDC balance, gas/fee/spend caps and exclusive nonce ownership.
 Never use unlocked remote accounts, Anvil development keys, `--private-key`, shell
 tracing, or printed authenticated RPC arguments. Simulate without `--broadcast`
@@ -125,7 +127,9 @@ native value for registration.
 The existing unlocked worker remains loopback-only on Anvil chain 31337.
 Signed preparation has explicit chain/registry/registrant binding, immutable
 intent journaling before submission, restart recovery, bounded fees, and
-canonical hash-pinned readback. Its remote submission path remains disabled.
+canonical hash-pinned readback. Its default preparation mode never submits.
+Explicit authorized mode uses the separate bounded immutable-byte submitter and
+durable aggregate budget.
 See [signed registration](signed-registration-preparation.md) for custody and
 journal details. Local simulation cannot prove selected-provider RPC support,
 public chain liveness, signer funding or a successful public deployment.

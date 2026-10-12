@@ -1,11 +1,15 @@
 # Tank Phase 1 development status
 
-Status: Phase 1 complete; Phase 2 local preparation verified. Real testnet pilot
-acceptance remains blocked by the deployment/custody/retention inputs below.
+Status: Phase 1 complete; Arc Testnet deployment/submission tooling verified
+locally. Public deployment and encrypted testnet pilot acceptance are blocked
+by RPC access and securely configured custody/funding below.
 
 Scope: complete the local MVP backlog below. Verified milestones may be committed
-and pushed to the existing origin; no deployments, force pushes, secret exposure,
-spending, or destructive changes to existing local data are authorized.
+and pushed to the existing origin. The latest user authorization permits Arc
+TESTNET deployment/registration with testnet funds only after prerequisites pass,
+superseding historical broadcast restrictions below. Mainnet, paid infrastructure,
+real-fund spending, force pushes, secret exposure and existing-data deletion remain
+unauthorized. Earlier milestone sections retain their historical authorization.
 
 ## Completed
 
@@ -422,3 +426,76 @@ funds arrive through secure configuration, with a reviewed submission/spend poli
 and explicit broadcast authorization. No secrets should be supplied in chat.
 Mainnet, paid infrastructure and public broadcasts remain outside authorization.
 Frontend/coordinator/independent storage hosting remains a separate pilot gate.
+
+
+### Arc deployment milestone: guarded execution ready; public prerequisites blocked
+
+Latest user authorization permits TankRegistry deployment and registration on
+Arc TESTNET only after network/custody/funding/fee prerequisites pass. It replaces
+the earlier restriction on testnet broadcasting. No new approval is needed for
+that authorized execution. Mainnet and real-fund/paid-host spending remain excluded.
+
+- Rechecked official connection/gas docs on 2026-10-12: testnet5042002,
+  mainnet5042, native USDC gas with 18 decimals. Read-only chain-ID checks against
+  official `rpc.testnet.arc.io` and documented `rpc.drpc.testnet.arc.io` returned
+  HTTP403 even with sandbox network escalation. Connectivity/actual RPC chain
+  verification has therefore NOT passed; no working provider was invented.
+- Active environment lacks selected RPC, expected dedicated public sender,
+  encrypted keystore/password paths, metadata journal and explicit fee budgets.
+  Existing local data was preserved. Custody validity, testnet balance and public
+  gas estimates cannot be checked until those inputs are configured privately.
+- Added `tank-deploy-arc preflight|deploy`: explicit testnet/HTTPS chain checks,
+  private encrypted custody, current gas/fee estimates and balance, operator
+  ceilings, zero-value type2 creation, exclusive durable no-overwrite signed-byte
+  journal before submission, immutable nonce/hash retries and restart recovery.
+  Successful completion requires canonical receipt plus exact compiled runtime
+  equality and block/network rechecks. Output contains public identifiers only.
+- Added opt-in `tank-prepare-registration --broadcast` with compiled runtime
+  verification. Preparation remains the default. Submission uses validated
+  journaled bytes and rechecks the live chain before send; ambiguous provider
+  errors are redacted and preserve the intent. The existing unlocked Anvil worker
+  retains its loopback-only restriction.
+- Coordinator opt-in `arc-testnet-external` mode reports the separate worker's
+  namespaced status from the shared database without RPC or signing custody;
+  authenticated status and cross-user denial regressions passed.
+- Additive schema8 stores permanent conservative maximum-cost reservations and
+  an immutable aggregate registration budget per account. Atomic concurrent
+  reservations, idempotent retry and restart persistence are verified. Deployment
+  has a separate cap. One dedicated account/journal must own its nonce/spend lane;
+  no fee replacement, budget escalation or journal deletion is automatic.
+- Explicit mainnet regressions cover Arc5042, Ethereum1, local31337, Base84532,
+  malformed/unexpected networks, signing chain and changed RPC chain, preventing
+  custody/submission on those networks. Solidity deployment regression also
+  rejects Arc and Ethereum mainnet with a valid configured sender.
+- Local Arc acceptance verifies the production guarded deployer, exact runtime,
+  restart with closed signer and zero remaining balance, and unchanged bytes/hash/
+  address/nonce. Production broadcaster acceptance uses generated encrypted
+  custody through trusted test TLS on an owned Arc node, actual registration,
+  ambiguous response, SQLite reopen without signing/submitting again, canonical
+  commitment/size readback and persisted aggregate-budget rejection.
+- Full Go race suite, vet and command builds passed. Arc contract suite passed
+  12 tests including 256 fuzz cases; all four Arc integration tests passed with
+  race detection. Launcher5/template2/preparation3 checks and diff checks passed.
+  Local encrypted browser pilot passed: ciphertext upload, exact bytes/Unicode
+  filename after local decryption, cross-user denial, process loss/repair,
+  metadata backup/restore, restart recovery, outage threshold and credentials.
+  These are isolated local tests, not public testnet or remote-signer evidence.
+- Exact terminal-only key/account, password, faucet, budget, deployment and worker
+  commands are in [Arc deployment setup](docs/arc-testnet-deployment.md). No keys,
+  passwords, credentials, raw journals or recovery keys were printed or committed.
+
+Public acceptance report: **no deployed address; no deployment/registration
+transaction hashes; no public explorer transaction yet**. Required next inputs:
+working selected HTTPS testnet RPC; securely configured dedicated signing custody
+and public address; faucet testnet USDC; explicit fee budgets and private journal.
+The available custody adapter signs from a local encrypted keystore on the worker
+host. A remote signing service has not been selected/integrated. Public registration,
+on-chain readback, retry/restart and combined encrypted-file acceptance remain
+outstanding until those prerequisites pass.
+
+Remaining hosting requirements: selected frontend/coordinator HTTPS hosts, three
+independent active storage machines plus spare, per-node private credentials,
+capacity/monitoring, private backups and restore drills, retention/funding/operator
+exit terms and real independent-machine failure acceptance. Registry deployment
+stores no shards and does not complete application hosting. No paid provisioning
+or mainnet execution occurred.

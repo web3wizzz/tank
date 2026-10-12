@@ -1,5 +1,5 @@
-// tank-prepare-registration signs/journals and observes only. No broadcast API
-// is linked into this workflow. Configure custody through private files.
+// tank-prepare-registration defaults to preparation. The explicit --broadcast
+// mode activates the separately guarded Arc Testnet immutable-byte submitter.
 package main
 
 import (
@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-var invalid = errors.New("Arc preparation requires explicit private configuration; broadcasting is disabled")
+var invalid = errors.New("Arc registration requires explicit bounded private testnet configuration")
 
 func privateJournal(path string) error {
 	if path == "" {
@@ -49,7 +49,8 @@ func privateJournal(path string) error {
 }
 
 func run() error {
-	if len(os.Args) != 1 || os.Getenv("TANK_CHAIN_ID") != "5042002" {
+	broadcast := len(os.Args) == 2 && os.Args[1] == "--broadcast"
+	if (len(os.Args) != 1 && !broadcast) || os.Getenv("TANK_CHAIN_ID") != "5042002" {
 		return invalid
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -99,7 +100,24 @@ func run() error {
 		return errors.New("private metadata journal unavailable")
 	}
 	defer store.Close()
-	w, err := registry.NewSignedWorker(store, p, signer, reader)
+	var w *registry.SignedWorker
+	if broadcast {
+		budget, ok := new(big.Int).SetString(os.Getenv("TANK_ARC_TESTNET_TOTAL_BUDGET"), 10)
+		if !ok || budget.Sign() <= 0 || budget.BitLen() > 256 {
+			return invalid
+		}
+		var runtime []byte
+		_, runtime, err = registry.LoadDeploymentArtifact(os.Getenv("TANK_ARC_DEPLOY_ARTIFACT"))
+		if err != nil {
+			return err
+		}
+		if err := reader.VerifyRuntime(ctx, runtime); err != nil {
+			return err
+		}
+		w, err = registry.NewBroadcastSignedWorker(store, p, signer, reader, reader, budget)
+	} else {
+		w, err = registry.NewSignedWorker(store, p, signer, reader)
+	}
 	if err != nil {
 		return err
 	}
@@ -122,5 +140,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Println("Arc intents prepared/reconciled privately; no transaction broadcast.")
+	if len(os.Args) == 2 && os.Args[1] == "--broadcast" {
+		fmt.Println("Arc Testnet registration pass finished; check canonical registration status for completion.")
+	} else {
+		fmt.Println("Arc intents prepared/reconciled privately; no transaction broadcast.")
+	}
 }

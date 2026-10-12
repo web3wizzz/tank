@@ -5,11 +5,32 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"tank.local/tank/internal/integrity"
 	"tank.local/tank/internal/metadata"
 	"tank.local/tank/internal/registry"
 )
+
+// NewHandlerWithExternalArcRegistration reports the separate signed worker's
+// journal status. The coordinator never connects to RPC or holds signing custody.
+func NewHandlerWithExternalArcRegistration(service *Service, store *metadata.Store, token string, chainID int64, contract, registrant string) (http.Handler, error) {
+	if chainID != registry.ArcTestnetChainID || !common.IsHexAddress(contract) || !common.IsHexAddress(registrant) || common.HexToAddress(contract) == (common.Address{}) || common.HexToAddress(registrant) == (common.Address{}) {
+		return nil, fmt.Errorf("external registration requires explicit Arc Testnet chain, registry and signer addresses")
+	}
+	base, err := NewHandler(service, token)
+	if err != nil {
+		return nil, err
+	}
+	if store == nil || store != service.store {
+		return nil, fmt.Errorf("registration and storage must use the same metadata store")
+	}
+	target := strconv.FormatInt(chainID, 10) + ":" + strings.ToLower(common.HexToAddress(contract).Hex()) + ":" + strings.ToLower(common.HexToAddress(registrant).Hex())
+	return newRegistrationHandler(base, service, store, token, target), nil
+}
 
 func NewHandlerWithRegistration(
 	service *Service,
