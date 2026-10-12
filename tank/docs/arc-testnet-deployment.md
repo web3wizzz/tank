@@ -10,6 +10,12 @@ passes. Official parameters were rechecked on 2026-10-12:
 Arc Mainnet 5042 and all unexpected chains are rejected before signing/submission.
 Native gas uses USDC with 18 decimals.
 
+TankRegistry has now passed public testnet deployment and encrypted-file
+acceptance; see the [public evidence](arc-testnet-acceptance.md). Reuse its existing
+private deployment journal rather than running a new deployment with this account.
+The 65 Gwei examples below reflect the user's explicit approval; total budgets
+remain unchanged. Independent application/storage hosting is still outstanding.
+
 ## Secure local setup
 
 Run these commands **in your local terminal**, from `/workspaces/tank/tank`.
@@ -46,27 +52,26 @@ PY
 export TANK_CHAIN_ID=5042002
 export TANK_SIGNER_KEYSTORE_FILE="$PWD/data/arc-testnet/tank-testnet"
 export TANK_SIGNER_PASSWORD_FILE="$PWD/data/arc-testnet/password"
-export TANK_ARC_TESTNET_SENDER="$(python3 - <<'PY'
-import json
-with open('data/arc-testnet/tank-testnet') as f:
-    print('0x' + json.load(f)['address'].removeprefix('0x'))
-PY
-)"
-# Public reference endpoint. This environment received HTTP 403 from it.
-export TANK_ARC_TESTNET_RPC=https://rpc.testnet.arc.io
+export TANK_ARC_TESTNET_SENDER="$(/tmp/tank-arc-foundry/arc-cast wallet address \
+  --keystore "$TANK_SIGNER_KEYSTORE_FILE" \
+  --password-file "$TANK_SIGNER_PASSWORD_FILE")"
+# Cast can omit the public address field from its V3 JSON. Derive it securely
+# with the existing wallet command rather than reading that optional field.
+# Primary returned HTTP403; this official public fallback passed chain-ID checks.
+export TANK_ARC_TESTNET_RPC=https://rpc.blockdaemon.testnet.arc.io
 # To select another HTTPS RPC securely, use a hidden prompt, never a shell
 # command containing its secret URL:
 # read -r -s -p 'Selected HTTPS testnet RPC: ' TANK_ARC_TESTNET_RPC
 # export TANK_ARC_TESTNET_RPC
 
 export TANK_ARC_DEPLOY_MAX_GAS=1000000
-export TANK_ARC_DEPLOY_MAX_FEE=40000000000
+export TANK_ARC_DEPLOY_MAX_FEE=65000000000
 export TANK_ARC_DEPLOY_MAX_TIP=1000000000
 export TANK_ARC_DEPLOY_MAX_COST=40000000000000000
 export TANK_ARC_DEPLOY_ARTIFACT="$PWD/contracts/out/TankRegistry.sol/TankRegistry.json"
 export TANK_ARC_DEPLOY_JOURNAL="$PWD/data/arc-testnet/deployment.raw"
 export TANK_ARC_TESTNET_MAX_GAS=200000
-export TANK_ARC_TESTNET_MAX_FEE=40000000000
+export TANK_ARC_TESTNET_MAX_FEE=65000000000
 export TANK_ARC_TESTNET_MAX_TIP=1000000000
 export TANK_ARC_TESTNET_MAX_COST=8000000000000000
 export TANK_ARC_TESTNET_TOTAL_BUDGET=100000000000000000

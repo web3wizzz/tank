@@ -1,8 +1,9 @@
 # Tank Phase 1 development status
 
-Status: Phase 1 complete; Arc Testnet deployment/submission tooling verified
-locally. Public deployment and encrypted testnet pilot acceptance are blocked
-by RPC access and securely configured custody/funding below.
+Status: TankRegistry is deployed and verified on Arc Testnet. Public-chain signed
+registration, canonical commitment readback, encrypted retrieval and user isolation
+are verified with an isolated local application/storage stack. Independent hosted
+application/storage pilot acceptance and retention terms remain outstanding.
 
 Scope: complete the local MVP backlog below. Verified milestones may be committed
 and pushed to the existing origin. The latest user authorization permits Arc
@@ -385,7 +386,7 @@ state even though they contain no recovery or signing key.
 ### Arc milestone 3: reproducible Arc execution and CI acceptance — `9895780`
 
 - Reverified official connection, EVM and gas documentation on 2026-10-12. Current
-  testnet chain5042002 and arc.io endpoints remain explicit reference parameters,
+  testnet chain 5042002 and arc.io endpoints remain explicit reference parameters,
   never an automatic operational RPC selection. Mainnet remains excluded.
 - Added official Arc Foundry v0.8.0-2 installation pinned by archive SHA-256 and
   commit, with an Arc-only loopback integration script and Contract CI job.
@@ -499,3 +500,52 @@ capacity/monitoring, private backups and restore drills, retention/funding/opera
 exit terms and real independent-machine failure acceptance. Registry deployment
 stores no shards and does not complete application hosting. No paid provisioning
 or mainnet execution occurred.
+
+
+### Arc milestone: public deployment, signed registration and encrypted-file acceptance
+
+- User approved 65 Gwei per-gas ceilings for Arc TESTNET only; deployment 0.04,
+  per-registration 0.008 and aggregate0.10 testnet USDC ceilings remain unchanged.
+- Secure dedicated encrypted custody and faucet funding passed. Official public
+  Blockdaemon RPC passed chain 5042002, verified TLS and canonical hash-pinned reads.
+  Sandbox DNS restrictions and HTTP403 from other documented RPCs were diagnosed
+  separately. No secret RPC URL, password or key was printed/transferred/committed.
+- TankRegistry: `0xe1fC5025261af42dfe04788c7a09DAd3ea1EC435`.
+  Deployment transaction:
+  `0x21530cecade1981109209048f67e3e72ee17d4a45dd39c65c6a031ad5072089f`.
+  Canonical receipt and exact compiled runtime verified; actual fee 0.004998504
+  testnet USDC. Resuming the existing private journal returned the same address/hash
+  and left its bytes unchanged. No duplicate deployment or competing nonce created.
+- Registration transaction:
+  `0xfc61320016d6fb4d54773a75f75cb773ad8998dfee60a484947dc72b796a0fab`.
+  Actual fee 0.001457379 testnet USDC; permanent maximum-cost reservation 0.00548002,
+  within the unchanged budgets. A nonbroadcast preparation pass, delayed retry in
+  a fresh worker and another restart verified immutable bytes/signature/nonce and
+  canonical commitment/size confirmation. The private lane remains nonce 1 confirmed.
+- Encrypted synthetic file passed real public-chain registration plus isolated
+  local application/storage upload/retrieval, exact bytes/Unicode filename after
+  local decryption, cross-user 404, and retrieval after coordinator/storage restart.
+  Independent receipt-block RPC reads recomputed/matched commitment and 2133-byte
+  ciphertext size. Existing local user data was preserved; pilot data stays private.
+- Arc Studio contract-only review began with both clones at main/67bc932 full SHA,
+  and both target files matched independently by content/hash. Zero-sender rejection
+  is already correct and its test passes in both environments; no test weakening
+  or artificial code patch was applied. Arc Studio corrected an unsupported initial
+  tooling hypothesis and returned no source changes, with 12 passing tests/256 fuzz
+  cases. Codex independently passed 12 Arc contract tests. Arc Studio had no custody
+  or journal input and performed no deployment, broadcasting, commit or push.
+- Post-review preflight passed within 65 Gwei and unchanged total limits. Existing
+  deployment and confirmed registration were reverified, and encrypted retrieval/
+  decryption/user isolation repeated without additional transactions.
+- [Acceptance report](docs/arc-testnet-acceptance.md) and
+  [public identifiers/bytecode/fee evidence](deploy/arc-testnet/registry.json)
+  document results and explorer links. Setup commands now securely derive the
+  public address even when a Cast V3 keystore omits its optional address field.
+
+Public blockchain milestone is complete. Application/storage above ran locally;
+independent hosted pilot acceptance, stable HTTPS, retention/funding/operator-exit
+terms and real machine-failure acceptance remain outstanding. The selected custody
+is a local encrypted keystore, not a remote signing-service adapter. Pilot services
+are stopped with private data/configuration retained. No mainnet deployment, real
+fund spending or paid provisioning occurred. Historical blocker sections above
+retain the state at their earlier milestones; this section records current gates.
