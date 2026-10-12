@@ -22,6 +22,7 @@ import (
 type readRPCFixture struct {
 	mu                                   sync.Mutex
 	chainID, code                        string
+	gasPrice, estimate, balance          string
 	header                               *types.Header
 	receipt                              *types.Receipt
 	record                               []byte
@@ -38,7 +39,7 @@ func fixtureReader(t *testing.T) *readRPCFixture {
 	record[0] = 1
 	binary.BigEndian.PutUint64(record[56:64], 10)
 	binary.BigEndian.PutUint64(record[88:96], 123)
-	return &readRPCFixture{chainID: "0x4cef52", code: "0x01", header: header, receipt: &types.Receipt{TxHash: common.HexToHash("0x1234"), Status: 1, BlockHash: header.Hash(), BlockNumber: big.NewInt(10), Logs: []*types.Log{}}, record: record}
+	return &readRPCFixture{chainID: "0x4cef52", code: "0x01", gasPrice: "0x4a817c800", estimate: "0xc350", balance: "0xde0b6b3a7640000", header: header, receipt: &types.Receipt{TxHash: common.HexToHash("0x1234"), Status: 1, BlockHash: header.Hash(), BlockNumber: big.NewInt(10), Logs: []*types.Log{}}, record: record}
 }
 func (f *readRPCFixture) handler(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
@@ -62,6 +63,12 @@ func (f *readRPCFixture) handler(w http.ResponseWriter, r *http.Request) {
 			result["result"] = f.chainID
 		case "eth_getCode":
 			result["result"] = f.code
+		case "eth_gasPrice":
+			result["result"] = f.gasPrice
+		case "eth_estimateGas":
+			result["result"] = f.estimate
+		case "eth_getBalance":
+			result["result"] = f.balance
 		case "eth_getTransactionCount":
 			result["result"] = "0x7"
 		case "eth_getTransactionReceipt":
@@ -236,4 +243,50 @@ func arcReaderConfig(url string) Config {
 	c := workerConfig(url)
 	c.ChainID = ArcTestnetChainID
 	return c
+}
+
+func TestArcTermsBoundsEstimatesAndNativeBalance(t *testing.T) {
+	for _, mode := range []string{"valid", "fee_cap", "gas_cap", "balance", "budget", "provider"} {
+		t.Run(mode, func(t *testing.T) {
+			fixture := fixtureReader(t)
+			server := httptest.NewTLSServer(http.HandlerFunc(fixture.handler))
+			defer server.Close()
+			cfg := arcReaderConfig(server.URL)
+			reader, err := openTestnetReader(context.Background(), cfg, server.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reader.Close()
+			p := TestnetPolicy{ChainID: ArcTestnetChainID, Contract: common.HexToAddress(cfg.Contract), Registrant: common.HexToAddress(cfg.Registrant), MaxGas: 100000, MaxFeeWei: big.NewInt(40_000_000_000), MaxTipWei: big.NewInt(1_000_000_000), MaxExecutionCostWei: big.NewInt(4_000_000_000_000_000), Confirmations: 1}
+			fixture.mu.Lock()
+			switch mode {
+			case "fee_cap":
+				fixture.gasPrice = "0x9502f9000"
+			case "gas_cap":
+				fixture.estimate = "0x186a0"
+			case "balance":
+				fixture.balance = "0x1"
+			case "budget":
+				p.MaxExecutionCostWei = big.NewInt(1)
+			case "provider":
+				fixture.providerError = true
+			}
+			fixture.mu.Unlock()
+			terms, err := reader.Terms(context.Background(), workerManifest(t, "Arc estimate"), p)
+			if mode == "valid" {
+				if err != nil || terms.Nonce != 7 || terms.Gas != 60000 || terms.FeeWei.Int64() != 40_000_000_000 {
+					t.Fatal("incorrect bounded native USDC terms")
+				}
+			} else if err == nil {
+				t.Fatal("unsafe native fee or balance estimate accepted")
+			}
+			fixture.mu.Lock()
+			defer fixture.mu.Unlock()
+			for _, method := range fixture.methods {
+				if strings.Contains(method, "send") || strings.Contains(method, "sign") {
+					t.Fatal("terms submitted transaction")
+				}
+			}
+		})
+	}
 }

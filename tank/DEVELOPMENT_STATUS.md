@@ -359,3 +359,20 @@ state even though they contain no recovery or signing key.
   Arc registry deployment does not host frontend/coordinator/storage nodes.
 - Next independent preparation: secure custody adapter, signed worker recovery
   and Arc-Anvil integration evidence. Historical Base milestones above are history.
+
+
+### Arc milestone 2: offline custody and recoverable signed worker
+
+- Added encrypted V3 keystore signing with private owned-file checks, symlink
+  refusal, address binding, redacted errors, and Arc type-2/zero-value restrictions.
+- Added a manually invoked preparation command with private journal-directory and
+  sidecar checks; no broadcaster or automatic service activation is present.
+- Signed worker resumes journaled bytes across retries/restart. Chain, registry,
+  and registrant namespace jobs; chain/account lanes exclude concurrent nonces.
+- Read-only terms check current native USDC fees, gas margin, balance and explicit
+  spend caps before signing. Caps are never increased automatically.
+- Validation: full Go race suite, vet/build, custody and reader regression tests,
+  retry/lane tests and private-journal checks passed. Public signing inputs remain
+  pending; tests use generated isolated accounts only.
+- Remaining public gate: securely supplied RPC, dedicated signer and testnet USDC,
+  aggregate spend/submission policy and separate broadcast authorization.

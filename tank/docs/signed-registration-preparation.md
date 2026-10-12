@@ -3,8 +3,9 @@
 The new internal preparation/journal layer does not select a wallet, connect to
 an RPC, submit a transaction, or enable the public registration worker. The
 existing local unlocked-account client stays restricted to Anvil chain31337.
-A selected custody adapter and an explicitly authorized submission path are
-required for a future pilot. The read-only RPC adapter is prepared separately.
+An offline encrypted-keystore custody adapter and read-only RPC adapter are
+available. Operator custody selection and an explicitly authorized submission
+path are still required for a future pilot.
 
 ## What is implemented locally
 
@@ -82,8 +83,40 @@ readback uses a block hash with `requireCanonical=true`, followed by another
 canonical-header check. No service activates it automatically; tests use owned
 TLS fixtures. It checks code presence, not a deployed-bytecode fingerprint.
 
-Remaining public integration requires the selected dedicated signer/custody,
-authorized submission/retry adapter, immutable-byte rebroadcast with ambiguous-error handling,
-nonce discrepancy reconciliation, Arc native USDC fee accounting, canonical block
-queries, and explicit broadcast authorization. Do not activate a public worker
-by removing restrictions from the existing local client.
+## Secure custody and preparation worker
+
+`KeystoreSigner` accepts an encrypted Ethereum V3 keystore and a password file.
+Both files must be regular, owned by the process user, and inaccessible to group
+and others (mode 0600); symlinks are rejected. Use a private mode0700 directory
+outside git. It verifies the expected public address, refuses the first standard
+Anvil account, and accepts only zero-value type-2 Arc Testnet contract calls.
+Operators must create a dedicated account: other known development keys are not
+an acceptable source of custody. Keys remain in process memory until closed;
+this adapter is not a hardware signer. Errors omit paths, passwords and keys.
+
+`tank-prepare-registration` is a bounded, manually invoked preparation command.
+It is not started by the coordinator or the local launcher. After private
+configuration is supplied, it estimates fees/gas, checks native USDC balance,
+signs and journals a registration intent, and checks canonical observations.
+`SignedWorker` retries with bounded backoff; absent/reverted receipts preserve the
+same signed bytes and account lane. Restart reconciles persisted transactions
+without requesting another signature or estimate. It never submits transactions.
+
+Build it with `go build -o bin/tank-prepare-registration ./cmd/tank-prepare-registration`.
+Use the placeholder names in `deploy/arc-testnet/testnet.conf.example`, configured
+through the operator's private environment. Do not run against a remote provider
+until those inputs have been securely supplied. The command requires an existing
+owned private parent directory for `TANK_DATABASE_PATH`, refuses symlink database
+and WAL/SHM files, and prints only a generic completion result. Keep backups in
+private directories too; signed bytes are broadcastable operational state.
+
+The reader uses twice the current suggested gas price (at least the Arc floor)
+and a 20% gas margin within the explicit caps, then checks that native balance
+covers `gasLimit * maxFeePerGas`. This checks one intent, not aggregate spending.
+Fee/balance/provider failures stop preparation before signing.
+
+Remaining public integration requires selected dedicated custody, an authorized
+submission/retry adapter, immutable-byte rebroadcast with ambiguous-error handling,
+nonce discrepancy reconciliation, an aggregate spend policy, and explicit
+broadcast authorization. Do not activate a public worker by removing restrictions
+from the existing local client.

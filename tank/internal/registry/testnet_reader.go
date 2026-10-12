@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strings"
 	"tank.local/tank/internal/integrity"
+	"tank.local/tank/internal/metadata"
 	"time"
 )
 
@@ -110,6 +111,57 @@ func (r *TestnetReader) PendingNonce(ctx context.Context) (uint64, error) {
 		return 0, ErrTestnetRPC
 	}
 	return nonce, nil
+}
+
+// Terms uses native 18-decimal USDC units throughout. Estimates never raise an
+// operator bound. An unavailable estimate/balance fails closed before signing.
+func (r *TestnetReader) Terms(ctx context.Context, m metadata.Manifest, p TestnetPolicy) (TransactionTerms, error) {
+	var empty TransactionTerms
+	if !p.valid() || p.ChainID != r.chainID || p.Contract != r.contract || p.Registrant != r.registrant {
+		return empty, ErrPreparation
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := r.verifyNetwork(ctx); err != nil {
+		return empty, err
+	}
+	data, err := registrationData(m)
+	if err != nil {
+		return empty, err
+	}
+	fee, err := r.chain.SuggestGasPrice(ctx)
+	if err != nil || !positive256(fee) {
+		return empty, ErrTestnetRPC
+	}
+	fee = new(big.Int).Mul(fee, big.NewInt(2))
+	if fee.Cmp(big.NewInt(ArcMinimumFee)) < 0 {
+		fee.SetInt64(ArcMinimumFee)
+	}
+	if fee.Cmp(p.MaxFeeWei) > 0 {
+		return empty, ErrPreparation
+	}
+	tip := new(big.Int).Set(p.MaxTipWei)
+	gas, err := r.chain.EstimateGas(ctx, ethereum.CallMsg{From: r.registrant, To: &r.contract, Value: new(big.Int), Data: data, GasFeeCap: fee, GasTipCap: tip})
+	if err != nil || gas < 21000 || gas > p.MaxGas || gas > (p.MaxGas*5)/6 {
+		return empty, ErrPreparation
+	}
+	gas += gas / 5 // 20% simulation margin, still within explicit ceiling
+	cost := new(big.Int).Mul(new(big.Int).SetUint64(gas), fee)
+	if cost.Cmp(p.MaxExecutionCostWei) > 0 {
+		return empty, ErrPreparation
+	}
+	balance, err := r.chain.BalanceAt(ctx, r.registrant, nil)
+	if err != nil || balance == nil || balance.Cmp(cost) < 0 {
+		return empty, ErrPreparation
+	}
+	nonce, err := r.chain.PendingNonceAt(ctx, r.registrant)
+	if err != nil {
+		return empty, ErrTestnetRPC
+	}
+	if err := r.verifyNetwork(ctx); err != nil {
+		return empty, err
+	}
+	return TransactionTerms{Nonce: nonce, Gas: gas, FeeWei: fee, TipWei: tip}, nil
 }
 
 // Observation requests canonical, hash-pinned readback and rechecks that the
