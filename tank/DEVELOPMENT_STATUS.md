@@ -378,7 +378,7 @@ state even though they contain no recovery or signing key.
   aggregate spend/submission policy and separate broadcast authorization.
 
 
-### Arc milestone 3: reproducible Arc execution and CI acceptance
+### Arc milestone 3: reproducible Arc execution and CI acceptance — `9895780`
 
 - Reverified official connection, EVM and gas documentation on 2026-10-12. Current
   testnet chain5042002 and arc.io endpoints remain explicit reference parameters,
@@ -403,3 +403,22 @@ state even though they contain no recovery or signing key.
 - Registry deployment and frontend/coordinator/independent storage hosting retain
   separate acceptance requirements. Future submission integration and aggregate
   spend policy remain prerequisites to any authorized public deployment.
+
+
+### Arc preparation handoff: publication and CI verified
+
+Both `620fc1d` (secure offline custody/worker) and `9895780` (Arc local tooling/CI)
+are pushed to origin/main. All four workflows passed for both commits. Final
+implementation evidence:
+
+- [Go race/static/build checks](https://github.com/web3wizzz/tank/actions/runs/38289281695)
+- [Standard contracts and Arc local execution/recovery](https://github.com/web3wizzz/tank/actions/runs/38289281700)
+- [TypeScript SDK](https://github.com/web3wizzz/tank/actions/runs/38289281696)
+- [Browser workspace and pilot recovery](https://github.com/web3wizzz/tank/actions/runs/38289281681)
+
+Independent preparation is verified; actual Arc Testnet acceptance is not claimed.
+Continue only after the chosen RPC, dedicated signing account and testnet USDC
+funds arrive through secure configuration, with a reviewed submission/spend policy
+and explicit broadcast authorization. No secrets should be supplied in chat.
+Mainnet, paid infrastructure and public broadcasts remain outside authorization.
+Frontend/coordinator/independent storage hosting remains a separate pilot gate.
