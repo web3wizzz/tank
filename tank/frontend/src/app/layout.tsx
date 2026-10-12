@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter } from "next/font/google";
 import {
   SITE_TITLE,
   SITE_DESCRIPTION,
@@ -11,12 +11,6 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-body",
-  display: "swap",
-});
-
-const space = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-heading",
   display: "swap",
 });
 
@@ -50,14 +44,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07090b",
+  themeColor: "#0B0F19",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${space.variable}`}>
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

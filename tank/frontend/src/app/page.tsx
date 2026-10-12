@@ -1,246 +1,105 @@
+import { ArrowUpRight, Braces, CheckCircle2, CircleDashed, Code2, Database, GitBranch, Network, ServerCog, ShieldCheck } from "lucide-react";
+import FeatureSection from "@/components/feature-section";
+import Hero from "@/components/hero";
+import Logo from "@/components/logo";
+import Navbar from "@/components/navbar";
+import Reveal from "@/components/reveal";
 import SessionGate from "@/components/session-gate";
-import Link from "next/link";
 import Workspace from "@/components/workspace";
 
-const features = [
-  {
-    number: "01",
-    title: "Storage that can recover.",
-    description:
-      "Each segment becomes four data shards and two parity shards. Tank can reconstruct it when enough verified shards remain.",
-  },
-  {
-    number: "02",
-    title: "Check the bytes you retrieve.",
-    description:
-      "Integrity checks help detect damaged data. The SDK verifies the retrieved file against its content identifier.",
-  },
-  {
-    number: "03",
-    title: "Keep a commitment on-chain.",
-    description:
-      "The local registration worker records a manifest commitment on Anvil. Your file contents stay off-chain.",
-  },
+const repo = "https://github.com/web3wizzz/tank";
+
+const stack = [
+  { name: "Go", role: "Coordinator and node services", icon: ServerCog },
+  { name: "TypeScript", role: "Browser workspace and SDK", icon: Braces },
+  { name: "SQLite", role: "Coordinator metadata", icon: Database },
+  { name: "Solidity", role: "Manifest commitment registry", icon: Code2 },
+];
+
+const stages = [
+  { label: "Available", title: "Local MVP", icon: CheckCircle2, body: "Run the coordinator, four local storage processes, registration worker, and this encrypted browser workspace on your own machine.", items: ["Browser encryption", "4 + 2 erasure coding", "Per-user isolation", "Recovery drill tests"] },
+  { label: "In validation", title: "Testnet pilot", icon: Network, body: "The public Arc Testnet registry is deployed and a signed encrypted-file commitment was verified. Independent hosted storage remains outstanding.", items: ["Public registry deployed", "Signed registration verified", "Hosted acceptance outstanding"] },
+  { label: "Planned", title: "Future production", icon: CircleDashed, body: "Long-running independent operators, public HTTPS services, monitoring, funding, and explicit retention terms require future work.", items: ["Independent operators", "Published service terms", "Sustained availability"] },
 ];
 
 const questions = [
-  {
-    question: "What is Tank?",
-    answer:
-      "Tank is an open-source storage MVP. It splits files across storage nodes, reconstructs missing shards, and verifies retrieved data.",
-  },
-  {
-    question: "Can I use it for important files today?",
-    answer:
-      "Use the current version for local development and evaluation. Keep another copy of your files: production durability and long-term retention are not guaranteed.",
-  },
-  {
-    question: "Are my files stored on Ethereum?",
-    answer:
-      "No. Storage nodes hold the file shards. The current blockchain integration records a commitment on a local Anvil chain.",
-  },
-  {
-    question: "Are uploads encrypted?",
-    answer:
-      "The browser workspace encrypts file contents and the original filename before uploading. Save its recovery key privately: Tank cannot recover a lost key. SDK and CLI uploads require you to encrypt files yourself.",
-  },
-  {
-    question: "How do developers integrate Tank?",
-    answer:
-      "Use the Go SDK, the TypeScript SDK, the CLI, or the HTTP API. Both SDKs have passed end-to-end tests against the local services.",
-  },
+  { question: "What does “tank it” mean?", answer: "It means encrypting a file in this browser, uploading its ciphertext, and distributing erasure-coded shards across the configured Tank storage nodes." },
+  { question: "Can Tank recover a lost recovery key?", answer: "No. The browser does not send your recovery key to storage. If you lose it, Tank cannot decrypt the file or its original filename. Keep the key private and backed up." },
+  { question: "Is the file stored on-chain?", answer: "No. Storage nodes hold file shards. The registry stores a commitment to the file manifest and its size, so file contents and recovery keys stay off-chain." },
+  { question: "Is Tank ready for important files?", answer: "The current release is a local MVP and testnet pilot. Keep an independent copy: hosted durability, production availability, and long-term retention are not guaranteed." },
 ];
 
 export default function Home() {
   return (
     <main className="site-shell">
-      <a className="skip-link" href="#workspace">
-        Skip to storage workspace
-      </a>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
+      <Navbar />
+      <div id="main-content">
+        <Hero />
+        <section className="proof-strip" aria-label="Tank architecture summary">
+          <div><strong>4 + 2</strong><span>data and parity shards</span></div>
+          <div><strong>3 + 1</strong><span>active nodes and spare pilot design</span></div>
+          <div><strong>Any 4</strong><span>valid shards reconstruct</span></div>
+          <div><strong>Arc</strong><span>public Testnet commitment registry</span></div>
+        </section>
+        <FeatureSection />
 
-      <header className="navigation">
-        <Link className="brand" href="/" aria-label="Tank home">
-          <span className="brand-icon" aria-hidden="true">▰</span>
-          tank<span className="brand-period">.</span>
-        </Link>
-
-        <nav aria-label="Main navigation">
-          <a href="#features">Features</a>
-          <a href="#developers">Developers</a>
-          <a href="#faq">FAQ</a>
-        </nav>
-
-        <a className="button secondary nav-button" href="#workspace">
-          Open workspace <span aria-hidden="true">↗</span>
-        </a>
-      </header>
-
-      <section className="hero" aria-labelledby="hero-title">
-        <span className="eyebrow">
-          <span className="status-dot" aria-hidden="true" />
-          OPEN SOURCE · LOCAL MVP
-        </span>
-
-        <h1 id="hero-title">
-          Your files.<br />
-          Stored with resilience.<br />
-          <span className="accent-text">Retrieved with proof.</span>
-        </h1>
-
-        <p className="hero-description">
-          Split files across nodes. Recover missing shards.
-          Verify the bytes that come back.
-        </p>
-
-        <div className="hero-actions">
-          <a className="button primary" href="#workspace">
-            Explore the workspace <span aria-hidden="true">→</span>
-          </a>
-          <a className="button secondary" href="#developers">
-            Build with Tank
-          </a>
-        </div>
-
-        <p className="hero-note">
-          A working local prototype, built in the open.
-        </p>
-
-        <div className="storage-diagram" aria-label="Storage process">
-          <div className="diagram-step">
-            <span className="diagram-icon" aria-hidden="true">↥</span>
-            <strong>Your file</strong>
-            <small>Split into segments</small>
+        <section className="technology-section section-block" id="technology" aria-labelledby="technology-title">
+          <Reveal className="technology-copy">
+            <span className="eyebrow">BUILT WITH REAL TECHNOLOGY</span>
+            <h2 id="technology-title">A small stack you can inspect end to end.</h2>
+            <p>Tank is open source. The services, SDKs, browser encryption envelope, registry contract, and recovery tests live in one repository.</p>
+            <a className="text-link" href={repo} target="_blank" rel="noreferrer">Explore the source <ArrowUpRight aria-hidden="true" size={15} /></a>
+          </Reveal>
+          <div className="stack-grid">
+            {stack.map(({ name, role, icon: Icon }) => <article className="stack-card" key={name}><Icon aria-hidden="true" size={22} strokeWidth={1.5} /><div><h3>{name}</h3><p>{role}</p></div></article>)}
           </div>
+          <div className="code-panel">
+            <div className="code-heading"><span>TypeScript SDK</span><span className="small-label">LOCAL DEVELOPMENT</span></div>
+            <pre><code>{`const manifest = await tank.tank(bytes)
 
-          <span className="diagram-arrow" aria-hidden="true">→</span>
-
-          <div className="diagram-step">
-            <div className="shard-grid" aria-hidden="true">
-              {[0, 1, 2, 3, 4, 5].map((shard) => (
-                <span
-                  key={shard}
-                  className={shard > 3 ? "parity-shard" : ""}
-                />
-              ))}
-            </div>
-            <strong>4 + 2 shards</strong>
-            <small>For each segment</small>
-          </div>
-
-          <span className="diagram-arrow" aria-hidden="true">→</span>
-
-          <div className="diagram-step">
-            <span className="diagram-icon" aria-hidden="true">✓</span>
-            <strong>Verified retrieval</strong>
-            <small>Check recovered bytes</small>
-          </div>
-        </div>
-      </section>
-
-      <section className="metrics" aria-label="Local prototype specifications">
-        <div><strong>16 MiB</strong><span>Default storage upload limit</span></div>
-        <div><strong>4 + 2</strong><span>Erasure coding</span></div>
-        <div><strong>2 SDKs</strong><span>Go and TypeScript</span></div>
-        <div><strong>4 nodes</strong><span>Local demo configuration</span></div>
-      </section>
-
-      <section className="section-block" id="features">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">BUILT FOR THE DATA</span>
-            <h2>More than an upload.</h2>
-          </div>
-          <p>
-            Understand where your file goes, how it recovers,
-            and what gets verified.
-          </p>
-        </div>
-
-        <div className="feature-grid">
-          {features.map((feature) => (
-            <article className="feature-card" key={feature.number}>
-              <span className="feature-number">{feature.number}</span>
-              <h3>{feature.title}</h3>
-              <p>{feature.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="developer-section section-block" id="developers">
-        <div className="developer-copy">
-          <span className="eyebrow">FOR DEVELOPERS</span>
-          <h2>Your next integration<br />starts with a file.</h2>
-          <p>
-            Work with a straightforward HTTP API and SDKs for Go
-            and TypeScript. Upload, retrieve, list files, and
-            inspect registration status.
-          </p>
-          <div className="technology-tags" aria-label="Project technologies">
-            <span>Go</span>
-            <span>TypeScript</span>
-            <span>SQLite</span>
-            <span>Solidity</span>
-          </div>
-          <a className="text-link" href="#workspace">
-            Explore the local workflow <span aria-hidden="true">→</span>
-          </a>
-        </div>
-
-        <div className="code-panel">
-          <div className="code-heading">
-            <span>TypeScript SDK</span>
-            <span className="small-label">LOCAL DEVELOPMENT</span>
-          </div>
-          <pre><code>{`// With a configured Tank SDK client:
-const manifest = await client.tank(bytes);
-
-const recovered = await client.retrieve(
+const recovered = await tank.retrieve(
   manifest.file_id
-);
+)
 
-const registration =
-  await client.registrationStatus(
-    manifest.file_id
-  );`}</code></pre>
-          <p>Retrieved bytes are checked by the SDK.</p>
-        </div>
-      </section>
+const status = await tank.registrationStatus(
+  manifest.file_id
+)`}</code></pre>
+            <div className="code-status"><ShieldCheck aria-hidden="true" size={15} /> Retrieved bytes are integrity checked by the SDK.</div>
+          </div>
+        </section>
 
-      <SessionGate><Workspace /></SessionGate>
+        <section className="roadmap-section section-block" id="roadmap" aria-labelledby="roadmap-title">
+          <div className="section-heading"><div><span className="eyebrow">DELIVERY PATH</span><h2 id="roadmap-title">Where Tank stands today.</h2></div><p>Evidence is separated from plans so you can evaluate the system without production promises.</p></div>
+          <div className="stage-grid">
+            {stages.map(({ label, title, body, items, icon: Icon }, index) => <article className="stage-card" key={title}>
+              <div className="stage-card-top"><Icon aria-hidden="true" size={20} /><span>0{index + 1}</span></div>
+              <span className={`stage-label stage-${index}`}>{label}</span><h3>{title}</h3><p>{body}</p>
+              <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
+            </article>)}
+          </div>
+        </section>
 
-      <section className="faq-section section-block" id="faq">
-        <div>
-          <span className="eyebrow">A FEW THINGS TO KNOW</span>
-          <h2>Clear answers.<br />Before you upload.</h2>
-        </div>
+        <SessionGate><Workspace /></SessionGate>
 
-        <div className="faq-list">
-          {questions.map((item) => (
-            <details key={item.question}>
-              <summary>{item.question}</summary>
-              <p>{item.answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+        <section className="resources-section section-block" id="resources" aria-labelledby="resources-title">
+          <div><span className="eyebrow">RESOURCES</span><h2 id="resources-title">Read the evidence.<br />Run it yourself.</h2><p>Start locally, inspect the code, or review the Arc Testnet acceptance record.</p></div>
+          <div className="resource-links">
+            <a href={repo} target="_blank" rel="noreferrer"><GitBranch aria-hidden="true" /><span><strong>Source repository</strong><small>Services, SDKs, contract, and tests</small></span><ArrowUpRight aria-hidden="true" /></a>
+            <a href={`${repo}/blob/main/tank/README.md`} target="_blank" rel="noreferrer"><Code2 aria-hidden="true" /><span><strong>Developer guide</strong><small>Run the local workflow</small></span><ArrowUpRight aria-hidden="true" /></a>
+            <a href={`${repo}/blob/main/tank/docs/arc-testnet-acceptance.md`} target="_blank" rel="noreferrer"><ShieldCheck aria-hidden="true" /><span><strong>Testnet acceptance</strong><small>Public deployment and registration evidence</small></span><ArrowUpRight aria-hidden="true" /></a>
+          </div>
+        </section>
 
-      <section className="closing-cta">
-        <span className="eyebrow">STORE. RECOVER. VERIFY.</span>
-        <h2>It starts with a file.</h2>
-        <p>Explore the prototype. Help shape what comes next.</p>
-        <a className="button primary" href="#workspace">
-          Open the workspace <span aria-hidden="true">↗</span>
-        </a>
-      </section>
+        <section className="faq-section section-block" aria-labelledby="faq-title">
+          <div><span className="eyebrow">BEFORE YOU TANK IT</span><h2 id="faq-title">Clear answers for the current release.</h2></div>
+          <div className="faq-list">{questions.map((item) => <details key={item.question}><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div>
+        </section>
 
-      <footer className="footer">
-        <Link className="brand" href="/" aria-label="Tank home">
-          tank<span className="brand-period">.</span>
-        </Link>
-        <p>Verifiable storage. Built in the open.</p>
-        <span>Local MVP</span>
-      </footer>
+        <section className="closing-cta"><span className="eyebrow">ENCRYPT · DISTRIBUTE · VERIFY</span><h2>Your next file starts here.</h2><p>Use the local workspace, keep your recovery key, and keep an independent copy.</p><a className="button primary" href="#workspace">Open workspace <ArrowUpRight aria-hidden="true" size={16} /></a></section>
+      </div>
+
+      <footer className="footer"><Logo monochrome /><p>Encrypted, verifiable file storage. Built in the open.</p><nav aria-label="Footer navigation"><a href="#how-it-works">How it works</a><a href="#roadmap">Roadmap</a><a href={repo}>GitHub</a></nav><span>Local MVP · Arc Testnet</span></footer>
     </main>
   );
 }

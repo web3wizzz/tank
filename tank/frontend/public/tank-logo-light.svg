@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="188" height="48" viewBox="0 0 188 48" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Tank</title>
+  <g transform="translate(4 4)">
+    <path d="M6.5 10.25 20 3l13.5 7.25v19.5L20 37 6.5 29.75v-19.5Z" stroke="#D9E4EF" stroke-width="1.7"/>
+    <path d="m6.5 10.25 13.5 7.3 13.5-7.3M20 17.55V37" stroke="#94A3B8" stroke-width="1.25" opacity=".55"/>
+    <path d="M12.5 13.25h15M20 13.25v17" stroke="#00E5FF" stroke-width="3.2" stroke-linecap="square"/>
+  </g>
+  <text x="56" y="35" fill="#FFFFFF" font-family="Inter,Arial,sans-serif" font-size="32" font-weight="700" letter-spacing="-1.5">Tank</text>
+</svg>
