@@ -23,6 +23,12 @@ user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
 
 ### Hosted pilot operations readiness — in progress (2026-10-13)
 
+Published as `071c819` (hosted testnet pilot operations); pushed to `origin/main`.
+All four CI workflows passed on that commit: [Go/Tank](https://github.com/web3wizzz/tank/actions/runs/38485289610),
+[TypeScript SDK](https://github.com/web3wizzz/tank/actions/runs/38485289304),
+[browser](https://github.com/web3wizzz/tank/actions/runs/38485289223), and
+[contracts/Arc-local](https://github.com/web3wizzz/tank/actions/runs/38485289321).
+
 - Frontend follow-up commit `78e27a8` improved text contrast and removed the
   stale stock favicon. Responsive checks at 320, 375, 768, 1280 and 1440 px,
   reduced-motion visibility, mobile-menu Escape/focus handling, and custom icon
