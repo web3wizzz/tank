@@ -34,16 +34,22 @@ Persistent chain state and revalidation remain follow-up work.
 
 ## Arc preparation
 
+**Current status (2026-10-13):** the existing TankRegistry and signed Arc
+registration passed public testnet verification. See
+[Arc acceptance](arc-testnet-acceptance.md). The public worker uses guarded
+`tank-prepare-registration --broadcast` with the shared durable journal; the
+coordinator uses `arc-testnet-external` status mode. The old local worker below
+remains restricted to loopback Anvil.
+
 Arc Testnet (chain 5042002) is the first public registry target. The unlocked
 worker above stays restricted to loopback Anvil chain31337. Public state is
 namespaced by chain, registry address and registrant; a shared signer has one
 exclusive nonce lane across registry contracts.
 
-The separate [signed preparation worker](signed-registration-preparation.md)
-signs and journals through encrypted private custody, checks native USDC fee
-bounds, and reconciles canonical readback. It cannot broadcast and is not enabled
-by the coordinator. [Arc local acceptance](arc-testnet-preparation.md) covers
-creation, registration, retry and restart recovery on Arc-compatible Anvil.
-A supplied RPC, dedicated account and testnet gas funds remain pending through
-secure configuration. Arc deployment stores commitments only; frontend,
-coordinator and independent storage node hosting remain separate pilot work.
+The [signed registration worker](signed-registration-preparation.md) signs and
+journals through encrypted private custody, checks native USDC fee bounds, and
+reconciles canonical readback. Its explicit `--broadcast` mode is Arc Testnet
+only. A disabled-by-default systemd timer template runs bounded passes; see
+[pilot operations](pilot-operations.md). The registry stores commitments only;
+frontend, coordinator, and independent storage-node hosting remain separate pilot
+work.

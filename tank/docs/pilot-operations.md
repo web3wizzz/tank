@@ -1,13 +1,15 @@
 # Phase 2 pilot operations
 
-These are configurable preparation templates, not a deployed pilot. Actual hosts,
-RPC provider, signer, users, funding, and remote deployment approval are pending.
-Do not use placeholders as real hosts, keys, or service configuration.
+These are configurable hosted-pilot templates, not a deployed application or
+storage pilot. TankRegistry is already deployed and registered on Arc Testnet;
+see [the acceptance evidence](arc-testnet-acceptance.md). Frontend/coordinator
+HTTPS hosts, independent storage hosts, operator access, pilot users, and owner
+decisions remain pending. Do not use placeholders as real hosts, keys, or service
+configuration.
 
-Arc Testnet is the first public registry target. Follow
-[Arc preparation](arc-testnet-preparation.md) before any mainnet deployment.
-The registry deployment is separate from frontend/coordinator hosting and the
-independent storage machines; Arc does not store file shards.
+Arc Testnet is the public registry target. Mainnet remains outside this pilot
+scope. The registry deployment is separate from frontend/coordinator hosting
+and independent storage machines; Arc does not store file shards.
 
 ## Topology and capacity
 
@@ -33,11 +35,74 @@ build machine. Choose more capacity or lower request/byte limits based on result
 
 ## Configuration and secret custody
 
-Build the pinned repository versions locally with `go build -o bin/ ./cmd/...`.
-For the future selected hosts, `deploy/pilot/systemd/` defines coordinator/node
-units and `deploy/pilot/*.conf.example` provides editable configuration templates.
+### Reproducible release builds
+
+Build from a recorded full Git commit on a clean release worktree. Record the
+operating system/architecture and Go, Node/npm, and Arc Foundry versions. Verify
+Go module checksums, use each checked-in npm lockfile with `npm ci`, and retain
+build logs and binary/artifact checksums in the operator's private release record.
+Never include runtime configuration, credential files, databases, signed
+journals, or user recovery keys in a build artifact.
+
+From the repository root:
+
+```bash
+git status --short
+git rev-parse HEAD
+go version
+node --version
+npm --version
+cd tank
+go mod verify
+go build -trimpath -o bin/ ./cmd/...
+cd sdk-ts
+npm ci
+npm test
+npm run check
+cd ../frontend
+npm ci
+npm test
+npm run lint
+npm run build
+```
+
+The frontend build needs its selected canonical `TANK_SITE_URL` at build time.
+Keep that public origin stable; load the session secret from
+`/etc/tank/frontend.conf` only at runtime. Pin the source commit and lockfiles
+when copying a release to a host. This makes build inputs reviewable; bitwise
+identical artifacts still need confirmation from the recorded environment.
+
+For selected hosts, `deploy/pilot/systemd/` defines coordinator, node, frontend,
+and bounded Arc worker lifecycle units. `deploy/pilot/*.conf.example` provides
+editable configuration templates.
 The same node unit/template runs on each of four machines, with its own directory,
 HTTPS endpoint, and credential. Installation/provisioning is not automated here.
+
+Install the selected units and configuration only after host inventory, paths,
+ownership, firewall rules, and certificate renewal are reviewed. Validate units
+before starting them:
+
+```bash
+sudo systemd-analyze verify /etc/systemd/system/tank-*.service /etc/systemd/system/tank-*.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now tank-node.service       # each node host
+sudo systemctl enable --now tank-coordinator.service
+sudo systemctl enable --now tank-frontend.service
+```
+
+The Arc registration timer is separate and disabled by default. Install
+`deploy/arc-testnet/testnet.conf.example` as a private worker environment file,
+replace only its documented placeholders locally, point its database path at the
+coordinator's existing journal, and verify the same account, registry, 65 Gwei
+ceiling, per-registration 0.008 USDC ceiling, and aggregate 0.10 USDC ledger. Do
+not duplicate or reset that journal. Run the existing non-broadcast preflight
+first; then an authorized operator can install/enable the timer on the one worker
+host. Never start a second worker/account lane.
+
+Use `systemctl status` and authenticated operational reports to check lifecycle.
+The worker is a bounded oneshot on a five-minute timer; retries keep their signed
+transaction bytes and permanent spend reservations. A failed worker pass does not
+authorize raising fee or total-spend caps.
 
 Create the `tank` service user and private `/etc/tank` configuration out of band.
 Service config can be root:tank mode0640; the coordinator's credential JSON must
@@ -46,7 +111,9 @@ slash) to its unique private node token, in the configured placement order.
 `TANK_NODE_CREDENTIALS_FILE` selects this map; `TANK_NODE_TOKEN` remains a legacy
 shared local-mode fallback. Never copy all node credentials onto a storage host.
 Keep administrator credentials on the coordinator/operator tooling; frontend
-config contains only its persistent session secret and coordinator URL.
+config contains only its exact HTTPS origin, coordinator URL, persistent session
+secret, and frontend limits. The registration worker uses the same coordinator
+database for its nonce lane and permanent spend ledger.
 
 Generate secrets privately, without shell tracing or printing them. The actual
 `.conf` files, credential maps, environment, TLS private keys, snapshots, logs,
@@ -85,6 +152,30 @@ snapshots and consistent metadata off their source machines in private custody.
 Original browser recovery keys remain user-owned. Record actual recovery-point
 and restore-time measurements; no automatic data deletion is enabled.
 
+### Local reference measurement (2026-10-13)
+
+One `TANK_E2E_MEASURE=1 npm run test:pilot` run on Linux 6.8 x86_64, 2 reported
+CPUs, Node 24.21.0, Go 1.27.1, Playwright 1.64.0, and the local four-process
+storage stack produced:
+
+| Sample | Measured result |
+| --- | ---: |
+| Synthetic PDF plaintext | 591 bytes |
+| Encrypted upload envelope | 673 bytes |
+| Browser encryption step | 290.11 ms |
+| Upload and service acknowledgement | 126.36 ms |
+| Retrieve, verify, decrypt, and download | 67.74 ms |
+| Complete local pilot drill, including builds | 28.90 s |
+
+These are single-sample loopback measurements from the local emulation. They
+provide a repeatable baseline for the existing 8 KiB test configuration, not a
+capacity or latency claim for a remote host. No p95, sustained throughput, host
+RSS/disk use, TLS renewal, independent failure-domain, or off-machine restore-time
+measurement exists yet. Repeat with documented file-size and concurrency sets
+after real pilot hosts are selected. Set `TANK_E2E_MEASURE=1` on the local pilot
+command to print synthetic byte counts and phase timings; it prints no file data,
+credentials, or recovery key.
+
 Before onboarding pilot users, fill in the retention agreement:
 
 | Decision | Operator must specify |
@@ -104,8 +195,11 @@ separate later scopes.
 ## Acceptance evidence
 
 From `tank/frontend/`, after building the linked SDK/frontend and installing
-Chromium, run `npm run test:pilot`. Run the local pilot drill first; it uses synthetic users/data and owned temporary
-processes only. Record it as local emulation. The eventual real-host drill must
+Chromium, run `npm run test:pilot`. Run the local pilot drill first; it uses
+synthetic users/data and owned temporary processes only. Record it as local
+emulation. The hosted acceptance runner requires an explicit execute flag and
+separately configured independent hosts; its dry run does not stop services. The
+eventual real-host drill must
 stop one entire active storage machine, restore the encrypted PDF with its
 original filename and exact bytes, observe automatic repair onto the independent
 spare, restart/restore coordinator metadata, and confirm another user remains

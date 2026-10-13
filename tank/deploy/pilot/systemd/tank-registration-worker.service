@@ -1,0 +1,24 @@
+[Unit]
+Description=Tank guarded Arc Testnet registration pass
+After=network-online.target tank-coordinator.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=tank
+Group=tank
+UMask=0077
+EnvironmentFile=/etc/tank/registration-worker.conf
+WorkingDirectory=/opt/tank
+ExecStart=/opt/tank/bin/tank-prepare-registration --broadcast
+TimeoutStartSec=120
+StateDirectory=tank-registration-worker
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tank-coordinator
+
+# The shared coordinator database contains the only nonce lane and spend ledger.
+# Never point this worker at a copy, another account, or another journal.

@@ -1,10 +1,16 @@
 # Arc Testnet registry preparation
 
+**Preparation history.** The public deployment and registration gates in this
+document were completed and verified on 2026-10-12. Current public evidence is in
+[Arc acceptance](arc-testnet-acceptance.md). Continue from that evidence; do not
+repeat deployment to revalidate the same registry.
+
 Arc is Tank's first public blockchain target, replacing Base Sepolia. Testnet
 acceptance must precede any mainnet consideration. Guarded deployment and explicit
 worker broadcasting are now implemented; see [deployment setup](arc-testnet-deployment.md).
-RPC connectivity, dedicated signing account and testnet USDC funding remain pending
-through secure configuration. Never supply secrets in chat.
+The existing RPC, dedicated testnet account, faucet funding, deployment, and
+registration are recorded as completed. Never supply secrets in chat. Independent
+application/storage hosting remains a separate gate.
 
 ## Verified network and tooling (2026-10-12)
 

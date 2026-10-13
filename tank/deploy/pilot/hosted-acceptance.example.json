@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "frontend_url": "https://REPLACE_FRONTEND_HOST",
+  "coordinator": {
+    "url": "https://REPLACE_COORDINATOR_HOST",
+    "failure_domain": "REPLACE_COORDINATOR_FAILURE_DOMAIN",
+    "ssh_alias": "REPLACE_COORDINATOR_SSH_ALIAS",
+    "service": "tank-coordinator.service",
+    "registration_service": "tank-registration-worker.service",
+    "registration_timer": "tank-registration-worker.timer"
+  },
+  "nodes": [
+    {
+      "url": "https://REPLACE_ACTIVE_NODE_1_HOST",
+      "failure_domain": "REPLACE_PHYSICAL_FAILURE_DOMAIN_1",
+      "ssh_alias": "REPLACE_ACTIVE_NODE_1_SSH_ALIAS",
+      "service": "tank-node.service"
+    },
+    {
+      "url": "https://REPLACE_ACTIVE_NODE_2_HOST",
+      "failure_domain": "REPLACE_PHYSICAL_FAILURE_DOMAIN_2",
+      "ssh_alias": "REPLACE_ACTIVE_NODE_2_SSH_ALIAS",
+      "service": "tank-node.service"
+    },
+    {
+      "url": "https://REPLACE_ACTIVE_NODE_3_HOST",
+      "failure_domain": "REPLACE_PHYSICAL_FAILURE_DOMAIN_3",
+      "ssh_alias": "REPLACE_ACTIVE_NODE_3_SSH_ALIAS",
+      "service": "tank-node.service"
+    },
+    {
+      "url": "https://REPLACE_SPARE_NODE_HOST",
+      "failure_domain": "REPLACE_PHYSICAL_FAILURE_DOMAIN_4",
+      "ssh_alias": "REPLACE_SPARE_NODE_SSH_ALIAS",
+      "service": "tank-node.service"
+    }
+  ],
+  "credentials": {
+    "user_a": "/REPLACE_PRIVATE_DIRECTORY/user-a-credential.json",
+    "user_b": "/REPLACE_PRIVATE_DIRECTORY/user-b-credential.json"
+  },
+  "recovery": {
+    "snapshot_binary": "/opt/tank/bin/tank-backup",
+    "live_database": "/var/lib/tank-coordinator/tank.sqlite",
+    "snapshot_database": "/REPLACE_PRIVATE_RECOVERY_DIRECTORY/new-snapshot.sqlite",
+    "restored_database": "/REPLACE_PRIVATE_RECOVERY_DIRECTORY/new-restored.sqlite"
+  },
+  "arc": {
+    "rpc_url": "https://REPLACE_SELECTED_PUBLIC_RPC_HOST",
+    "chain_id": 5042002,
+    "registry": "0xe1fC5025261af42dfe04788c7a09DAd3ea1EC435"
+  }
+}

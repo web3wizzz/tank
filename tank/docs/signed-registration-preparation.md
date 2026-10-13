@@ -1,5 +1,11 @@
 # Signed registration preparation and authorized Arc Testnet submission
 
+**Current public-chain status:** deployment and one encrypted-file registration
+are verified on Arc Testnet. See [public acceptance](arc-testnet-acceptance.md).
+Remaining work concerns hosted application/storage acceptance, not registry
+deployment or signer prerequisites. Preserve its existing account, journal, and
+budget ledger.
+
 The preparation/journal layer defaults to signing and observation without
 submission. Explicit `tank-prepare-registration --broadcast` now enables the
 guarded Arc Testnet submitter after private configuration and exact runtime
@@ -84,8 +90,9 @@ and code at the chosen registry, and exposes only pending nonce and canonical
 observations. Responses and time are bounded, redirects are refused, provider
 errors are redacted, and the chain is rechecked for every workflow. Registry
 readback uses a block hash with `requireCanonical=true`, followed by another
-canonical-header check. No service activates it automatically; tests use owned
-TLS fixtures. It checks code presence, not a deployed-bytecode fingerprint.
+canonical-header check. The coordinator does not activate it automatically; the
+optional systemd timer is a separate operator-managed unit. Tests use owned TLS
+fixtures. It checks code presence, not a deployed-bytecode fingerprint.
 
 ## Secure custody and preparation worker
 
@@ -120,9 +127,9 @@ and a 20% gas margin within the explicit caps, then checks that native balance
 covers `gasLimit * maxFeePerGas`. This checks one intent, not aggregate spending.
 Fee/balance/provider failures stop preparation before signing.
 
-Public acceptance still requires selected dedicated custody, working RPC, faucet
-funding and an encrypted-file pilot run. Authorized submission and immutable-byte
-retry/restart handling plus aggregate spend reservations are implemented and
-verified locally. A remote signer service has not been selected or integrated.
-Do not activate a public worker by removing restrictions
-from the existing local client.
+Public transaction acceptance and encrypted retrieval are documented in
+[Arc acceptance](arc-testnet-acceptance.md). The selected signer is a local
+encrypted keystore on its worker host, not a remote signing-service adapter.
+Actual independent host recovery remains unverified. Install the optional timer
+only on an authorized Arc Testnet worker and preserve the single account nonce
+lane, database, journal, and aggregate budget.

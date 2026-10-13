@@ -14,4 +14,9 @@ TANK_REQUEST_BURST=60
 TANK_USER_STORAGE_BYTES=1073741824
 TANK_TOTAL_STORAGE_BYTES=10737418240
 TANK_REQUEST_TIMEOUT_SECONDS=120
-# Testnet registration stays disabled until the signed-worker milestone is ready.
+# Public registration status is read from the shared metadata journal. The
+# coordinator holds no chain RPC credentials or signing custody.
+TANK_REGISTRATION_MODE=arc-testnet-external
+TANK_CHAIN_ID=5042002
+TANK_REGISTRY_ADDR=0xe1fC5025261af42dfe04788c7a09DAd3ea1EC435
+TANK_ARC_TESTNET_SENDER=0xFdE02e33287b161f797A3C2c63EE08c3673C591E

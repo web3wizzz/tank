@@ -1,5 +1,65 @@
 # Tank Phase 1 development status
 
+## Current continuation scope — 2026-10-13
+
+Continue the hosted Arc Testnet pilot backlog in [`AGENTS.md`](AGENTS.md). The
+public Arc Testnet deployment and registration are complete at the end of this
+file; do not redeploy. Frontend redesign and workspace verification are published
+in `78e27a8`. Independent hosted application/storage acceptance remains unproven
+because hosts and operator access have not been selected. Local process drills
+must not be reported as host evidence.
+
+Frontend verification is complete. This continuation audits reproducible builds,
+service lifecycle, TLS, per-node credentials, persistence, bounded retries, and
+restore safety; it adds preflight automation and operator materials. Next, resolve
+the remote drill interface gap and select independent hosts before hosted
+acceptance. Monitoring/backup measurement and capacity evidence must be completed
+on selected hosts. Retention, funding, and operator-exit terms remain drafts for
+owner review.
+Mainnet, real-fund spending, paid hosting, force pushes, data deletion, and budget
+increases remain unauthorized. Preserve the deployed registry, signer, journals,
+confirmed jobs, and private data. The frontend implementation used the previously
+user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
+
+### Hosted pilot operations readiness — in progress (2026-10-13)
+
+- Frontend follow-up commit `78e27a8` improved text contrast and removed the
+  stale stock favicon. Responsive checks at 320, 375, 768, 1280 and 1440 px,
+  reduced-motion visibility, mobile-menu Escape/focus handling, and custom icon
+  and social-preview responses passed. The full isolated browser pilot passed,
+  including encryption, recovery-key export/import, exact bytes and Unicode
+  filename, registration UI, cross-user denial, pagination, node loss/repair,
+  restart, backup/restore, and credential/session behavior.
+- One local synthetic 591-byte PDF sample recorded 290.11 ms encryption,
+  126.36 ms upload/acknowledgement, and 67.74 ms retrieve/verify/decrypt. It is
+  loopback-only evidence, not hosted capacity or latency data. Details and limits
+  are in [pilot operations](docs/pilot-operations.md).
+- Operations templates now add a loopback frontend unit and disabled bounded Arc
+  worker timer, correct worker limits to the authorized 65 Gwei and 0.008-per-file
+  ceilings (deployment 0.04 and aggregate 0.10 unchanged), and configure only the
+  already verified public testnet registry/address. Backup guidance preserves and
+  reconciles newer signed transaction journals before any restored worker resumes.
+- Added a configurable hosted preflight runner and 29 unit tests, plus onboarding
+  operations, troubleshooting, unreleased notes, and owner-decision drafts. The
+  runner checks distinct host identities, HTTPS/TLS endpoints, public Arc chain
+  and registry identity, service lifecycle, and private config metadata without
+  reading secrets. GPT-6-Sol review fixed a duplicate-host identity gap and added
+  coverage for duplicate HTTPS origins and malformed host configuration. Its
+  destructive hosted drill deliberately fails closed: the
+  current browser/restore interfaces cannot safely coordinate remote node loss
+  and signed-journal reconciliation. No independent host inventory or credentials
+  are configured, so hosted acceptance remains a blocker.
+- Local checks: pilot template tests (4), hosted-runner tests (29), Python compile,
+  frontend 19 tests/lint/build and full local pilot passed. CI for `78e27a8` passed
+  all four workflows: [Go](https://github.com/web3wizzz/tank/actions/runs/38484967120),
+  [SDK](https://github.com/web3wizzz/tank/actions/runs/38484967105),
+  [browser](https://github.com/web3wizzz/tank/actions/runs/38484967115), and
+  [contracts/Arc-local](https://github.com/web3wizzz/tank/actions/runs/38484967109).
+- Next: publish this local operations milestone, then implement/validate safe
+  remote drill hooks or document their precise interface requirements. Select
+  independent hosts and operator access before attempting real hosted acceptance;
+  prepare no paid resources without approval.
+
 Status: TankRegistry is deployed and verified on Arc Testnet. Public-chain signed
 registration, canonical commitment readback, encrypted retrieval and user isolation
 are verified with an isolated local application/storage stack. Independent hosted
