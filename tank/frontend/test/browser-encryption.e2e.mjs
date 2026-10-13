@@ -61,6 +61,9 @@ context.setDefaultTimeout(30_000);
 let uploaded;
 let recovery;
 const failures = [];
+const measured = process.env.TANK_E2E_MEASURE === "1";
+const timings = {};
+const now = () => Number(process.hrtime.bigint()) / 1e6;
 async function configureTransport(context) {
   if (upstream || codespacesAuth) {
     await context.route(`${origin}/**`, async (route) => {
@@ -236,8 +239,10 @@ try {
   pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   const original = Buffer.from(pdf);
   await page.getByLabel("Choose a file to tank").setInputFiles({ name: filename, mimeType: "application/pdf", buffer: original });
+  const encryptionStart = now();
   await page.getByRole("button", { name: "Encrypt file", exact: true }).click();
   await page.getByText("Encrypted in your browser. Save the recovery key before tanking.", { exact: true }).waitFor();
+  timings.encryption_ms = now() - encryptionStart;
   assert.ok(await page.getByRole("button", { name: "Tank encrypted file", exact: true }).isDisabled());
   const keyDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download recovery key" }).click();
@@ -247,8 +252,10 @@ try {
   recovery = Buffer.concat(chunks);
   const keyData = JSON.parse(recovery.toString());
   await page.getByRole("checkbox", { name: "I saved the recovery key in a private place." }).check();
+  const tankStart = now();
   await page.getByRole("button", { name: "Tank encrypted file", exact: true }).click();
   await page.getByText("Encrypted file tanked. Keep its recovery key to retrieve it later.", { exact: true }).waitFor();
+  timings.tank_upload_ms = now() - tankStart;
   assert.equal(await page.getByLabel("Choose a file to tank").inputValue(), "");
   await page.getByLabel("Choose a file to tank").setInputFiles({ name: filename, mimeType: "application/pdf", buffer: original });
   assert.ok(await page.getByRole("button", { name: "Encrypt file", exact: true }).isEnabled());
@@ -329,16 +336,26 @@ try {
   await page.getByRole("alert").filter({ hasText: "Wrong recovery key" }).waitFor();
   await page.getByLabel("Recovery key file").setInputFiles({ name: keyDownload.suggestedFilename(), mimeType: "application/json", buffer: recovery });
   const restoredPromise = page.waitForEvent("download");
+  const retrieveStart = now();
   await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
   const restored = await restoredPromise;
   assert.equal(restored.suggestedFilename(), filename);
   const restoredChunks = [];
   for await (const chunk of await restored.createReadStream()) restoredChunks.push(chunk);
   assert.ok(Buffer.concat(restoredChunks).equals(original), "Retrieved PDF must match the original bytes.");
+  timings.retrieve_and_decrypt_ms = now() - retrieveStart;
   await page.getByText("File verified, decrypted in your browser, and downloaded.", { exact: true }).waitFor();
   assert.deepEqual(failures, []);
   assert.deepEqual(leakedRequests, []);
   console.log("PASS: missing/wrong keys fail closed; reloaded recovery restores identical PDF bytes and original Unicode filename.");
+  if (measured) {
+    console.log(`LOCAL_MEASUREMENT ${JSON.stringify({
+      transport: upstream ? "loopback-frontend-over-https-browser-origin" : "configured-browser-origin",
+      original_bytes: original.length,
+      ciphertext_bytes: uploaded.bytes.length,
+      timings_ms: Object.fromEntries(Object.entries(timings).map(([key, value]) => [key, Math.round(value * 100) / 100])),
+    })}`);
+  }
   if (process.env.TANK_E2E_PILOT === "1" && process.send) {
     const recoveryReady = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Pilot recovery drill timed out.")), 60_000);

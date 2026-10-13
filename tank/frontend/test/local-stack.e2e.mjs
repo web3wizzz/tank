@@ -140,6 +140,7 @@ try {
       TANK_E2E_REPLACEMENT_FILE: join(directory, "alice-replacement.json"),
       TANK_E2E_PAGINATION: "1",
       TANK_E2E_MAX_FILE_BYTES: "8192",
+      ...(process.env.TANK_E2E_MEASURE === "1" ? { TANK_E2E_MEASURE: "1" } : {}),
       ...(pilot ? { TANK_E2E_PILOT: "1" } : {}),
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
