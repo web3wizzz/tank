@@ -1,5 +1,23 @@
 # Tank Phase 1 development status
 
+### Review repair: isolated container registration and CI — 2026-10-14
+
+- Added an explicit opt-in Compose overlay with a loopback-only chain 31337,
+  bytecode-verified fixture registry, persisted chain volume and local worker
+  sharing the coordinator SQLite volume. The worker refuses missing/uninitialized
+  DB state and holds the stable process-wide guard while handling queued jobs.
+  Public Arc custody, journals and budgets are never mounted or altered.
+- Pinned Arc fixture tooling installs with checksum verification and no archive
+  ownership restoration. Its local deployment bytecode and restart state pass
+  direct fixture checks. Shell syntax and bounded acceptance Python compile pass.
+- New Containers CI builds Go, standalone frontend and fixture-chain images,
+  runs browser encrypted upload/retrieve/recovery import and isolation, waits for
+  queued registration, restarts the same volumes and compares file/transaction
+  persistence. Cleanup is restricted to generated CI-owned projects/volumes.
+- Docker is not available locally. Full image execution is pending this CI run;
+  do not equate direct fixture or source checks with container acceptance.
+  Public signing containerization remains outside this local-only overlay.
+
 ### Review repair: healthy-node upload placement — 2026-10-14
 
 - New files probe all configured nodes and choose three eligible distinct node

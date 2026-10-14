@@ -29,6 +29,19 @@ frontend/scripts/**
 !frontend/src/**
 !frontend/public/
 !frontend/public/**
+!scripts/
+scripts/**
+!scripts/install-arc-foundry.sh
+!deploy/
+deploy/**
+!deploy/container/
+deploy/container/**
+!deploy/container/run-local-chain.sh
+!contracts/
+contracts/**
+!contracts/foundry.toml
+!contracts/src/
+!contracts/src/**
 # Defense in depth even inside allowed source directories.
 **/.env*
 **/node_modules
