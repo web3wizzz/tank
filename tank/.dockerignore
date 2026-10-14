@@ -63,3 +63,5 @@ contracts/**
 **/secrets
 **/data
 **/*_test.go
+
+**/*.recovery.json

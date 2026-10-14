@@ -1,5 +1,34 @@
 # Tank Phase 1 development status
 
+### Review repair checkpoint and acceptance — 2026-10-14
+
+| Review area | Implemented evidence | Remaining gate |
+| --- | --- | --- |
+| Dependency exposure | Runtime image inventory excludes lint/build tooling; production-only audit zero; standalone browser works | Five dev-tool entries remain under unresolved braces advisory; no unsafe downgrade |
+| Disaster recovery | Lost-authority/interrupted restore tests retain gates; missing/empty DB refused | Independent durable complete-tip authority and signing-state replication not implemented |
+| New uploads | Healthy/spare placement, capacity and concurrent/node-loss tests, integrity retrieval | Real distinct-host capacity/availability acceptance; orphan shard cleanup remains separate |
+| Container registration | Explicit local-chain overlay; same-host DB; whole-process worker lock; queued/restart registration | Public Arc container signer not supplied or implicitly authorized |
+| Container CI | All images, readiness, encrypted browser retrieval/key import, isolation and restart pass | Independent hosts are not represented by this CI |
+| CLI/SDK encryption | Opt-in helpers/CLI, recovery export/import, actual Go/TS/browser interoperability | User key custody remains required; raw APIs remain raw |
+| Coordinator availability | Existing-DB startup guard; concrete manual promotion/consensus/fencing design | Shared authority, split-brain prevention and cross-host signer fencing block automatic failover |
+| Hosted pilot | Explicit gates preserved | Host/operator access, TLS, monitoring, off-machine backups and measured capacity still required |
+
+- All five GitHub workflows pass for 471fb25, including Containers and the full
+  standalone browser pilot. Container logs prove encrypted exact PDF/name recovery,
+  user isolation, local registered transactions and persistence across restart.
+  The runtime inventory contains 68 traced packages and excludes lint/build tooling.
+- Final recovery hardening also refuses missing/schema-zero public registration
+  authority before opening custody or RPC; focused race tests, vet and build pass.
+  This cannot establish freshness of a valid stale copy. Signing after loss of
+  newest authority remains unsupported and recovery-gated.
+- Added `.recovery.json` exclusions to Git and the default-deny Docker context;
+  docs use private recovery paths. Ignore patterns cannot protect arbitrary names
+  or already tracked secrets: private placement and explicit staging remain needed.
+- Work is committed and published to `codex/tank-review-fixes` / draft PR #1.
+  No secret, deployed contract, public transaction, real fee expenditure, journal
+  deletion, budget reset, mainnet change or paid infrastructure was introduced.
+  This checkpoint is implementation/review evidence, not an independent audit.
+
 ### Review repair: launcher fencing and container diagnostics — 2026-10-14
 
 - A fresh local launcher now makes its demo directory private and waits under a

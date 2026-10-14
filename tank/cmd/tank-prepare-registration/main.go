@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+var authorityUnavailable = errors.New("private initialized metadata journal unavailable")
+
 var invalid = errors.New("Arc registration requires explicit bounded private testnet configuration")
 
 func privateJournal(path string) error {
@@ -36,6 +38,9 @@ func privateJournal(path string) error {
 	for _, suffix := range []string{"", "-wal", "-shm"} {
 		info, err := os.Lstat(path + suffix)
 		if os.IsNotExist(err) {
+			if suffix == "" {
+				return invalid
+			}
 			continue
 		}
 		if err != nil || !info.Mode().IsRegular() {
@@ -98,6 +103,12 @@ func run() error {
 		return registrationguard.ErrBlocked
 	}
 	p := registry.TestnetPolicy{ChainID: registry.ArcTestnetChainID, Contract: common.HexToAddress(contract), Registrant: common.HexToAddress(account), MaxGas: gas, MaxFeeWei: fee, MaxTipWei: tip, MaxExecutionCostWei: cost, Confirmations: 1}
+	// Operator must own a mode0700 parent directory for the journal and backups.
+	store, err := metadata.OpenExisting(ctx, os.Getenv("TANK_DATABASE_PATH"))
+	if err != nil {
+		return authorityUnavailable
+	}
+	defer store.Close()
 	signer, err := registry.OpenKeystoreSigner(ctx, os.Getenv("TANK_SIGNER_KEYSTORE_FILE"), os.Getenv("TANK_SIGNER_PASSWORD_FILE"), p.Registrant)
 	if err != nil {
 		return err
@@ -108,12 +119,6 @@ func run() error {
 		return err
 	}
 	defer reader.Close()
-	// Operator must own a mode0700 parent directory for the journal and backups.
-	store, err := metadata.Open(ctx, os.Getenv("TANK_DATABASE_PATH"))
-	if err != nil {
-		return errors.New("private metadata journal unavailable")
-	}
-	defer store.Close()
 	var w *registry.SignedWorker
 	if broadcast {
 		budget, ok := new(big.Int).SetString(os.Getenv("TANK_ARC_TESTNET_TOTAL_BUDGET"), 10)

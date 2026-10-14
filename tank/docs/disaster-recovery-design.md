@@ -30,6 +30,13 @@ content RPO and recovery time can be separately measured. No zero-loss or recove
 time claim is presently supported. If the independent authority is unavailable,
 mutations and signing stop; availability must not weaken this guarantee.
 
+The public `tank-prepare-registration` entry point now refuses a missing journal
+and opens only an existing initialized database before custody or RPC setup.
+Its maintenance/concurrent-worker guard remains enforced. Tests reject missing
+and schema-zero authority without creating a database or reaching custody. This
+closes silent bootstrap after loss, not rollback to an initialized stale copy.
+There is still no independent authenticated tip capable of approving that copy.
+
 ## Proposed independent authority
 
 Use an operator-selected service on a distinct host/storage failure domain with
