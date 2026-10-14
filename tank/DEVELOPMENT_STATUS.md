@@ -13,14 +13,41 @@ Frontend verification is complete. This continuation audits reproducible builds,
 service lifecycle, TLS, per-node credentials, persistence, bounded retries, and
 restore safety; it adds preflight automation and operator materials. Local restore
 orchestration and canonical reconciliation are now implemented below. Next, resolve
-remote activation/browser coordination and select independent hosts before hosted
-acceptance. Monitoring/backup measurement and capacity evidence must be completed
+host-specific remote activation/browser integration and select independent hosts
+before hosted acceptance. Monitoring/backup measurement and capacity evidence must be completed
 on selected hosts. Retention, funding, and operator-exit terms remain drafts for
 owner review.
 Mainnet, real-fund spending, paid hosting, force pushes, data deletion, and budget
 increases remain unauthorized. Preserve the deployed registry, signer, journals,
 confirmed jobs, and private data. The frontend implementation used the previously
 user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
+
+### Independent-host handoff — 2026-10-14
+
+[Operator handoff](docs/independent-host-pilot-handoff.md) now records the completed
+tooling baseline `1157d38`, five-machine topology (combined frontend/coordinator/
+single signing worker, three active storage machines and one spare), six HTTPS
+origins, ports/TLS/SSH requirements, private input inventory and exact release,
+service-installation, read-only preflight/reconciliation and browser-smoke commands.
+CPU/RAM/disk/bandwidth estimates are explicitly unmeasured assumptions. Monitoring,
+off-machine backups, failure-domain evidence and owner decisions are enumerated.
+
+No hosts were invented/provisioned, services started, timer enabled, remote drill
+activated or transactions submitted. Existing private state was not opened or
+changed; account, journals and approved budgets are preserved. The handoff
+distinguishes schema/dry-run, read-only hosted preflight, a synthetic encrypted-file
+smoke, canonical chain reconciliation and the still-disabled remote failure adapter.
+It records the active-timer preflight requirement and lost-newest-baseline restore
+gap instead of bypassing either gate.
+
+Validation: all handoff links resolve and its nine bash blocks pass `bash -n`;
+commands were reviewed against existing templates/CLI interfaces without executing
+them. Completed local suites were not rerun. Publication and
+CI evidence are recorded by the Git commit/push and its attached Actions runs.
+Next inputs: owner-selected authorized hosts/origins/operator access, single-lane
+custody handover, monitoring/backup destinations and workload/terms decisions.
+Then complete the reviewed host-specific remote adapter and obtain genuine hosted
+capacity/failure/restore evidence. No hosted pilot acceptance is claimed.
 
 ### Safe restore orchestration — 2026-10-14
 

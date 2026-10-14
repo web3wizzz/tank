@@ -7,6 +7,11 @@ HTTPS hosts, independent storage hosts, operator access, pilot users, and owner
 decisions remain pending. Do not use placeholders as real hosts, keys, or service
 configuration.
 
+Start with the [independent-host handoff](independent-host-pilot-handoff.md) for
+the minimal five-machine topology, private input inventory, exact deployment and
+acceptance commands, sizing assumptions and owner decisions. It preserves the
+existing registry/signing lane and leaves remote failure execution disabled.
+
 Arc Testnet is the public registry target. Mainnet remains outside this pilot
 scope. The registry deployment is separate from frontend/coordinator hosting
 and independent storage machines; Arc does not store file shards.

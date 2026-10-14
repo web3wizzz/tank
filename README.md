@@ -159,21 +159,24 @@ See the [browser encryption guide](tank/docs/browser-encryption.md) and
 
 ### Phase 2 pilot preparation
 
-[Separate-machine templates and operations](tank/docs/pilot-operations.md),
+[Independent-host handoff and owner checklist](tank/docs/independent-host-pilot-handoff.md),
+[separate-machine templates and operations](tank/docs/pilot-operations.md),
 [private backup/restore](tank/docs/backup-restore.md),
 [authenticated monitoring](tank/docs/monitoring.md), and
 [Arc Testnet preparation](tank/docs/arc-testnet-preparation.md) are available.
-Arc Testnet is the first public blockchain target; testnet acceptance must precede
-mainnet work. Secure offline signing and Arc-compatible local recovery checks are
-available; public broadcasting remains disabled. Arc hosts the commitment
-registry. The frontend, coordinator, and independent storage nodes require their
-own hosting and operational acceptance.
+Arc Testnet deployment and signed registration are verified in
+[public acceptance evidence](tank/docs/arc-testnet-acceptance.md). Mainnet remains
+unauthorized. Guarded testnet signing and local recovery reconciliation are
+available; remote failure/restore execution remains disabled. Arc hosts the
+commitment registry. The frontend, coordinator, and independent storage nodes
+require their own hosting and operational acceptance.
 
 The local drill (`npm run test:pilot` from `tank/frontend/`) verifies encrypted
 recovery after process loss, spare repair, coordinator restart, and metadata
 restore. It uses synthetic users/data and does not establish independent-machine
-or testnet deployment evidence. Actual hosts, signing, funding, retention terms,
-and deployment authorization remain operator decisions.
+or testnet deployment evidence. Actual hosts/operator access, custody handover,
+service funding and retention/exit terms remain owner decisions. Reuse the existing
+registry, signer and journals within the approved testnet budgets.
 
 ### Optional: enable local blockchain registration
 
@@ -212,7 +215,10 @@ Restart `scripts/run-local.sh` so it reads the new settings.
 
 The worker discovers existing manifests as well as newly tanked files.
 
-The current registration client is restricted to local Anvil, chain ID **31337**, and an unlocked development account. Public testnet deployment and production signing are planned.
+These local settings use Anvil chain ID **31337** and an unlocked development
+account. The separate [guarded Arc Testnet worker](tank/docs/arc-testnet-deployment.md)
+uses encrypted custody and the existing verified registry; production signing
+remains outside this pilot.
 
 ## Go SDK
 
@@ -384,13 +390,13 @@ From `tank/contracts/`:
 
 ## Progress and next steps
 
-| Working and verified locally | Planned |
+| Implemented (local unless noted) | Planned |
 | --- | --- |
 | Authenticated API, Go CLI, and Go/TypeScript SDKs | SDK publishing and release tooling |
 | Browser encryption, original filenames, and per-user workspaces | Self-service signup and account management |
 | File recovery after node failure | Independent operator deployments |
 | Manual and queued background repair | Production durability and backup operations |
-| Automatic registration and RPC outage recovery | Public testnet registration and secure signing |
+| Automatic registration and RPC outage recovery; guarded Arc Testnet signing/registration verified | Independent-host registration and recovery acceptance |
 | Exact retrieval after registration | Larger-file streaming and performance measurements |
 | On-chain record preserved across Anvil restart | Chain reset detection and status revalidation |
 | Go race tests, isolated browser integration, and GitHub CI | Retention economics, storage proofs, and operator incentives |

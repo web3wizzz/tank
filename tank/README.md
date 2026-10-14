@@ -67,9 +67,11 @@ configured replacement node. New files currently require all three
 initial storage nodes to accept their assigned shards.
 
 Browser encryption, individual user authorization, and local blockchain registration
-are implemented. CLI/SDK uploads remain unencrypted by default. Signed receipts,
-payments, public-chain signing, and production durability remain planned. Permanent
-retention is not guaranteed.
+are implemented. Signed Arc Testnet deployment and registration are verified in
+[Arc acceptance](docs/arc-testnet-acceptance.md). CLI/SDK uploads remain unencrypted
+by default. Payments and production durability remain planned; permanent retention
+is not guaranteed. The [independent-host pilot handoff](docs/independent-host-pilot-handoff.md)
+documents hosting inputs and acceptance gates; no hosted storage pilot is yet verified.
 
 See the [repository README](../README.md) for browser setup and
 [local MVP guide](docs/local-mvp.md) for isolated integration checks.

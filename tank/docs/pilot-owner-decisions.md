@@ -4,6 +4,11 @@
 pilot-user owners before inviting external users. Do not imply that the current
 local process tests or public registry transaction provide a retention promise.
 
+The [independent-host handoff checklist](independent-host-pilot-handoff.md#decisions-the-owner-must-supply)
+also lists the required host inventory, origins, access, custody handover,
+workload, monitoring and backup inputs. Supply authentication through private local
+files; these documents contain no approved hosts or access credentials.
+
 | Decision | Options to review | Trade-off to record |
 | --- | --- | --- |
 | Retention | Fixed end date; renewable term; or export-only window after a named pilot close | Specify dates, renewal notice, and what happens to shards and metadata when time expires. |
