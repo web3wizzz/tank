@@ -194,6 +194,11 @@ separate later scopes.
 
 ## Acceptance evidence
 
+The signing/restore safeguards now have isolated local automation and canonical
+chain validator coverage: [failure and restore safety](hosted-restore-safety.md).
+Use `--dry-run` on the hosted preflight for its plan; remote mutation remains
+disabled pending explicit hosts/operator access and activation/browser integration.
+
 From `tank/frontend/`, after building the linked SDK/frontend and installing
 Chromium, run `npm run test:pilot`. Run the local pilot drill first; it uses
 synthetic users/data and owned temporary processes only. Record it as local

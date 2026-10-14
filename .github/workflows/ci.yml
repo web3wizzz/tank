@@ -54,6 +54,7 @@ jobs:
           python3 scripts/test-local-env.py
           python3 scripts/test-pilot-templates.py
           python3 scripts/test-pilot-hosted-tests.py
+          python3 -W error::ResourceWarning scripts/test-pilot-restore.py
           python3 scripts/test-arc-testnet.py
 
       - name: Static checks

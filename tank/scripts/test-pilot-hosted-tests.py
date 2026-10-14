@@ -65,6 +65,14 @@ class HostedPreflightTests(unittest.TestCase):
         with mock.patch.object(Path, "read_text", side_effect=AssertionError("Unexpected private read")):
             hosted.validate_config(self.config)
 
+    def test_dry_run_never_contacts_or_mutates_hosts(self):
+        with mock.patch.object(hosted, "request", side_effect=AssertionError("Unexpected network")), \
+             mock.patch.object(hosted, "identity", side_effect=AssertionError("Unexpected SSH")), \
+             mock.patch.object(hosted.subprocess, "run", side_effect=AssertionError("Unexpected command")), \
+             contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(hosted.main(["--config", str(self.config_file()), "--dry-run"]), 0)
+        self.assertIn("Remote execution is disabled", output.getvalue())
+
     def test_private_config_loads(self):
         self.assertEqual(hosted.load_config(str(self.config_file())), self.config)
 

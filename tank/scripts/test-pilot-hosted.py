@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Read-only hosted-pilot preflight; full failure-drill execution fails closed.
 
-The current browser test requires Node IPC, does not publish the file ID for
-canonical Arc readback, and assumes three active-node controls. Its restore hook
-also cannot reconcile newer signed journals. Do not run it as hosted acceptance
-until those interfaces and recovery safeguards are extended.
+Local restore safeguards live in pilot-restore.py and tank-restore-check. Their
+process ownership, maintenance fencing, strict snapshot comparison and canonical
+chain reconciliation have isolated fixture coverage. Remote activation and the
+browser file/registration coordination interfaces remain unimplemented. Do not
+run this preflight as hosted acceptance.
 """
 import argparse
 import hashlib
@@ -275,13 +276,16 @@ def main(argv=None):
     parser = RedactedParser(description=__doc__)
     parser.add_argument("--config", required=True, help="owned mode-0600 JSON in a private directory")
     parser.add_argument("--validate-config-only", action="store_true", help="skip all network and SSH operations")
+    parser.add_argument("--dry-run", action="store_true", help="validate configuration and describe safety gates without network or service changes")
     parser.add_argument("--execute-hosted-drill", action="store_true", help="reserved execution gate; currently fails closed")
     args = parser.parse_args(argv)
     config = load_config(args.config)
     if args.execute_hosted_drill:
-        raise PreflightError("Hosted drill execution is unavailable: browser IPC must expose file/registration evidence, support all active-node controls, and pause/reconcile signing journals during restore. No services were changed.")
-    if args.validate_config_only:
+        raise PreflightError("Hosted drill execution is unavailable: local restore safeguards require reviewed remote ownership/activation integration and browser file/registration coordination. Explicit hosts/operator access must also be configured. No services were changed.")
+    if args.validate_config_only or args.dry_run:
         print("PASS: hosted configuration and private-file metadata validated; no network or host checks performed.")
+        if args.dry_run:
+            print("PLAN: identify five owned service hosts and selected node failure targets; acquire the shared signing lane; persist a maintenance gate; stop timer/coordinator and freeze metadata; reject stale state; create an inactive restore copy; verify signed history, revocations, budgets and canonical Arc receipts/nonces before any signing resumes. Remote execution is disabled.")
     else:
         preflight(config)
         print("PASS: read-only HTTPS, Arc chain/runtime, SSH machine identity and installed-service preflight.")

@@ -1,5 +1,10 @@
 # Pilot backup and restore
 
+For the implemented signing fence, strict stale-backup rejection, canonical
+read-only reconciliation and interrupted local controller recovery, see
+[failure and restore safety](hosted-restore-safety.md). Remote activation remains
+disabled; an old snapshot is never treated as authoritative signing/access state.
+
 Metadata and node shards are separate recovery inputs. Browser recovery keys stay
 with users and are never included in a server-side backup. A metadata snapshot
 contains credential hashes, authorization, manifests, filenames, durable

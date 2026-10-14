@@ -1,6 +1,6 @@
 # Tank Phase 1 development status
 
-## Current continuation scope — 2026-10-13
+## Current continuation scope — 2026-10-14
 
 Continue the hosted Arc Testnet pilot backlog in [`AGENTS.md`](AGENTS.md). The
 public Arc Testnet deployment and registration are complete at the end of this
@@ -11,8 +11,9 @@ must not be reported as host evidence.
 
 Frontend verification is complete. This continuation audits reproducible builds,
 service lifecycle, TLS, per-node credentials, persistence, bounded retries, and
-restore safety; it adds preflight automation and operator materials. Next, resolve
-the remote drill interface gap and select independent hosts before hosted
+restore safety; it adds preflight automation and operator materials. Local restore
+orchestration and canonical reconciliation are now implemented below. Next, resolve
+remote activation/browser coordination and select independent hosts before hosted
 acceptance. Monitoring/backup measurement and capacity evidence must be completed
 on selected hosts. Retention, funding, and operator-exit terms remain drafts for
 owner review.
@@ -20,6 +21,48 @@ Mainnet, real-fund spending, paid hosting, force pushes, data deletion, and budg
 increases remain unauthorized. Preserve the deployed registry, signer, journals,
 confirmed jobs, and private data. The frontend implementation used the previously
 user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
+
+### Safe restore orchestration — 2026-10-14
+
+- Both Arc deployment and registration CLIs now acquire the same exclusive
+  signing-lane lock before custody opens. Persistent maintenance/candidate gates
+  reject concurrent workers and keep signing blocked after controller interruption.
+  Lock files are retained, and all approved fee/total budgets stay unchanged.
+- Local-only restore controller identifies exact owned processes and selected
+  node targets using PID start times, command hashes, fixture cwd and PID descriptors.
+  It pauses coordinator/timer/targets, freezes SQLite writers, refuses any snapshot
+  differing from the newest live schema/table state, and publishes only a fresh
+  signing-blocked copy. Credentials/revocations, signed bytes, confirmed jobs,
+  nonces, cumulative reservations and deployment journals are preserved.
+- New read-only `tank-restore-check` verifies the existing pilot identity/runtime,
+  complete canonical transaction/receipt/commitment history, exact signed cost and
+  spend-counter totals, latest persisted signed bytes, and both account nonces.
+  Pending/ambiguous receipts, nonce conflicts, missing history and stale backups
+  fail closed; reconciliation cannot invoke signer or broadcast interfaces.
+- Controller dry runs, whole-operation deadlines, durable phase journals,
+  interrupted resume and cleanup are implemented. Restored candidates remain
+  inactive; only the unchanged original lane can resume after successful proof.
+  Remote execution remains disabled pending host-specific ownership/activation
+  and browser/registration coordination plus explicit hosts/operator access.
+- Evidence: isolated Python fixtures/local processes cover concurrent-worker
+  rejection, stale revocations, metadata write exclusion, timeout, PID safety,
+  interrupted pause/restore, cleanup failure and hard-killed-controller resume.
+  All 16 controller tests, 30 hosted-preflight tests and 4 template checks pass;
+  full Go race tests, vet/build, and pinned loopback Arc suite (12 contract tests
+  with 256 fuzz cases, 5 integration tests) pass. New real
+  loopback Arc/TLS/SQLite restore proof verifies unchanged bytes after snapshot
+  and restart, exactly one signature/submission, and no duplicate registration.
+  These are local fixture/chain-emulation results, not hosted evidence.
+- [Safety runbook](docs/hosted-restore-safety.md) records strict rejection policy,
+  commands, shared lane/gate custody, interruption recovery and remaining gates.
+  Existing real deployment, private data and journals were not opened or changed.
+
+Independent review found no further actionable defects within this local-fixture
+scope. Next task: publish this safety milestone and add safe browser file/registration
+coordination evidence for future acceptance orchestration. Independent hosts/operator access,
+TLS renewal/monitoring/off-machine backup and capacity measurements, and owner
+retention/funding/operator-exit decisions remain external inputs. Do not repeat
+deployment or claim a hosted pilot passed from these local safeguards.
 
 ### Hosted pilot operations readiness — in progress (2026-10-13)
 

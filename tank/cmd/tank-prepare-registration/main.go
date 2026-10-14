@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"syscall"
 	"tank.local/tank/internal/metadata"
+	"tank.local/tank/internal/registrationguard"
 	"tank.local/tank/internal/registry"
 	"time"
 )
@@ -82,6 +83,19 @@ func run() error {
 	}
 	if err := privateJournal(os.Getenv("TANK_DATABASE_PATH")); err != nil {
 		return err
+	}
+	lane := os.Getenv("TANK_REGISTRATION_LOCK_PATH")
+	if lane == "" {
+		lane = os.Getenv("TANK_DATABASE_PATH") + ".registration.lock"
+	}
+	guard, err := registrationguard.Acquire(lane)
+	if err != nil {
+		return err
+	}
+	defer guard.Close()
+	// A restore candidate remains blocked even when a custom stable lane is used.
+	if _, err := os.Lstat(os.Getenv("TANK_DATABASE_PATH") + ".restore-gate"); !os.IsNotExist(err) {
+		return registrationguard.ErrBlocked
 	}
 	p := registry.TestnetPolicy{ChainID: registry.ArcTestnetChainID, Contract: common.HexToAddress(contract), Registrant: common.HexToAddress(account), MaxGas: gas, MaxFeeWei: fee, MaxTipWei: tip, MaxExecutionCostWei: cost, Confirmations: 1}
 	signer, err := registry.OpenKeystoreSigner(ctx, os.Getenv("TANK_SIGNER_KEYSTORE_FILE"), os.Getenv("TANK_SIGNER_PASSWORD_FILE"), p.Registrant)

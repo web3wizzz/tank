@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "fixture_directory": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY",
+  "live_database": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY/live.sqlite",
+  "snapshot_database": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY/new-snapshot.sqlite",
+  "candidate_database": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY/new-candidate.sqlite",
+  "lane_lock": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY/live.sqlite.registration.lock",
+  "journal": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY/new-controller.json",
+  "deployment_journals": ["/REPLACE_PRIVATE_FIXTURE_DIRECTORY/deployment.json"],
+  "validator": "/REPLACE_PRIVATE_FIXTURE_DIRECTORY/tank-restore-check",
+  "validator_sha256": "REPLACE_VALIDATOR_SHA256",
+  "services": [
+    {"role": "coordinator", "pid": 0, "start_ticks": "REPLACE_START_TICKS", "command_sha256": "REPLACE_COMMAND_SHA256"},
+    {"role": "registration-timer", "pid": 0, "start_ticks": "REPLACE_START_TICKS", "command_sha256": "REPLACE_COMMAND_SHA256"},
+    {"role": "node", "pid": 0, "start_ticks": "REPLACE_START_TICKS", "command_sha256": "REPLACE_COMMAND_SHA256"}
+  ],
+  "failure_targets": [0],
+  "timeout_seconds": 90
+}

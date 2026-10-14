@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"tank.local/tank/internal/registrationguard"
 	"tank.local/tank/internal/registry"
 	"time"
 )
@@ -47,6 +48,23 @@ func run() error {
 	creation, runtime, e := registry.LoadDeploymentArtifact(os.Getenv("TANK_ARC_DEPLOY_ARTIFACT"))
 	if e != nil {
 		return e
+	}
+	lane := os.Getenv("TANK_REGISTRATION_LOCK_PATH")
+	if lane == "" {
+		if os.Getenv("TANK_DATABASE_PATH") == "" {
+			return registrationguard.ErrBlocked
+		}
+		lane = os.Getenv("TANK_DATABASE_PATH") + ".registration.lock"
+	}
+	guard, e := registrationguard.Acquire(lane)
+	if e != nil {
+		return e
+	}
+	defer guard.Close()
+	if database := os.Getenv("TANK_DATABASE_PATH"); database != "" {
+		if _, e := os.Lstat(database + ".restore-gate"); !os.IsNotExist(e) {
+			return registrationguard.ErrBlocked
+		}
 	}
 	signer, e := registry.OpenKeystoreSigner(ctx, os.Getenv("TANK_SIGNER_KEYSTORE_FILE"), os.Getenv("TANK_SIGNER_PASSWORD_FILE"), common.HexToAddress(account))
 	if e != nil {
