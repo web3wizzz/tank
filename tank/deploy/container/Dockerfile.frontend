@@ -1,11 +1,12 @@
 FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1 TANK_STANDALONE_BUILD=1
 WORKDIR /app/sdk-ts
 COPY sdk-ts/package.json sdk-ts/package-lock.json ./
 RUN npm ci
 COPY sdk-ts/tsconfig.json ./
 COPY sdk-ts/src/ src/
 RUN npm run build
+
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -17,12 +18,17 @@ ARG TANK_SITE_URL=http://localhost:3330
 ENV TANK_SITE_URL=${TANK_SITE_URL} TANK_ALLOW_INDEXING=false
 RUN npm run build
 
+# Validate the actual traced runtime, not just the production lockfile graph.
+COPY frontend/scripts/check-runtime.mjs /tmp/check-runtime.mjs
+RUN node /tmp/check-runtime.mjs /app/frontend/.next/standalone
+
 FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 WORKDIR /app/frontend
-COPY --from=build /app/sdk-ts/ /app/sdk-ts/
-COPY --from=build /app/frontend/ ./
+COPY --from=build /app/frontend/.next/standalone/ /app/
+COPY --from=build /app/frontend/.next/static/ ./.next/static/
+COPY --from=build /app/frontend/public/ ./public/
 RUN mkdir -p .next/cache && chown -R node:node .next/cache
 USER node
 EXPOSE 3000
-CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
+CMD ["node", "server.js"]

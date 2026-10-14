@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,7 @@ const project = resolve(frontend, "..");
 const directory = await mkdtemp(join(tmpdir(), "tank-integration-"));
 const children = [];
 const pilot = process.argv.includes("--pilot");
+const standalone = process.env.TANK_E2E_STANDALONE === "1";
 let shuttingDown = false;
 let shutdownPromise;
 let activePhase;
@@ -24,6 +25,18 @@ function start(command, args, options = {}) {
   const child = spawn(command, args, { cwd: project, env, stdio: "ignore", ...options });
   children.push(child);
   return child;
+}
+function startFrontend(port, environment) {
+  if (standalone) {
+    const runtime = join(frontend, ".next/standalone/frontend");
+    return start(process.execPath, [join(runtime, "server.js")], {
+      cwd: runtime,
+      env: { ...environment, HOSTNAME: "127.0.0.1", PORT: String(port) },
+    });
+  }
+  return start(process.execPath, [join(frontend, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(port)], {
+    cwd: frontend, env: environment,
+  });
 }
 async function finished(child, label) {
   if (child.exitCode !== null) {
@@ -95,6 +108,11 @@ for (const key of Object.keys(env)) {
   if (key.startsWith("TANK_CHAIN_") || ["TANK_REGISTRY_ADDR", "TANK_REGISTRANT"].includes(key) || key.startsWith("TANK_E2E_")) delete env[key];
 }
 try {
+  if (standalone) {
+    const runtime = join(frontend, ".next/standalone/frontend");
+    await cp(join(frontend, "public"), join(runtime, "public"), { recursive: true });
+    await cp(join(frontend, ".next/static"), join(runtime, ".next/static"), { recursive: true });
+  }
   await mkdir(join(directory, "bin"));
   console.log("Building temporary storage, coordinator, and credential tools…");
   for (const [binary, command] of [["node", "tank-node"], ["coordinator", "coordinator"], ["access", "tank-access"], ["backup", "tank-backup"]]) {
@@ -142,7 +160,7 @@ try {
   delete frontendEnv.TANK_API_TOKEN;
   delete frontendEnv.TANK_NODE_TOKEN;
   delete frontendEnv.TANK_NODE_CREDENTIALS_FILE;
-  const server = start(process.execPath, [join(frontend, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(frontendPort)], { cwd: frontend, env: frontendEnv });
+  const server = startFrontend(frontendPort, frontendEnv);
   await ready(`http://127.0.0.1:${frontendPort}/api/auth/session`, server, [403]);
   const test = start(process.execPath, [join(frontend, "test/browser-encryption.e2e.mjs")], {
     cwd: frontend,
@@ -262,8 +280,9 @@ try {
   await new Promise((resolve) => stalled.listen(0, "127.0.0.1", resolve));
   try {
     const deadlinePort = await port();
-    const deadlineServer = start(process.execPath, [join(frontend, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(deadlinePort)], {
-      cwd: frontend, env: { ...frontendEnv, TANK_API_URL: `http://127.0.0.1:${stalled.address().port}`, TANK_REQUEST_TIMEOUT_SECONDS: "1", TANK_FRONTEND_MAX_CONCURRENT_REQUESTS: "1" },
+    const deadlineServer = startFrontend(deadlinePort, {
+      ...frontendEnv, TANK_API_URL: `http://127.0.0.1:${stalled.address().port}`,
+      TANK_REQUEST_TIMEOUT_SECONDS: "1", TANK_FRONTEND_MAX_CONCURRENT_REQUESTS: "1",
     });
     const base = `http://127.0.0.1:${deadlinePort}`;
     await ready(`${base}/api/auth/session`, deadlineServer, [403]);

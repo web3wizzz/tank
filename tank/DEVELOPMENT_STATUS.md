@@ -1,5 +1,27 @@
 # Tank Phase 1 development status
 
+### Review repair: production runtime dependency isolation — 2026-10-14
+
+- Reproduced five high frontend npm entries tracing to one unresolved braces
+  advisory in the eslint-config-next lint chain. Full audit remains nonzero;
+  production-only audit reports zero findings. No forced downgrade, override,
+  or suppression was applied. [Exposure review](docs/dependency-exposure.md)
+  distinguishes the lockfile graph from copied runtime image contents.
+- Container frontend now builds Next standalone output and copies only traced
+  production files plus static/public assets. Developer next start remains
+  unchanged. A runtime inventory fails on copied lint/build/test packages or
+  artifact-escaping symlinks; three regression tests pass. The actual standalone
+  build and 70-package inventory pass, as do frontend tests and lint.
+- Browser CI now exercises the generated standalone server and checks its
+  inventory, rather than merely validating an unrelated full-workspace server.
+  Local browser installation is currently blocked by a truncated Chromium
+  download. Docker is unavailable in this review environment; image and browser
+  acceptance must be confirmed by CI before this milestone is called verified.
+- Remaining repair order: newest-authoritative-state disaster recovery,
+  healthy-node new-upload placement, container registration/CI, opt-in SDK/CLI
+  encryption, coordinator recovery, and independent hosted acceptance. Preserve
+  fail-closed signing, deployed registry, and all existing budgets.
+
 ## Current continuation scope — 2026-10-14
 
 Continue the hosted Arc Testnet pilot backlog in [`AGENTS.md`](AGENTS.md). The

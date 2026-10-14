@@ -13,6 +13,12 @@ and built image IDs. Update base digests deliberately and revalidate. Builds nee
 access to public image/module/npm registries and the existing
 font build dependency. No runtime secrets are build arguments.
 
+The frontend runtime uses Next's traced standalone artifact instead of copying
+the complete build workspace. Static/public assets are copied separately and the
+generated `server.js` is the entrypoint. A build-time inventory rejects lint/test
+tooling in the actual runtime artifact. See [dependency exposure](dependency-exposure.md)
+for the unresolved braces development advisory and the limits of npm audit evidence.
+
 ## Start a separate local stack
 
 From `tank/`, create a private environment once. Do not regenerate it while

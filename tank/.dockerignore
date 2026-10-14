@@ -22,6 +22,9 @@ frontend/**
 !frontend/next.config.ts
 !frontend/tsconfig.json
 !frontend/postcss.config.mjs
+!frontend/scripts/
+frontend/scripts/**
+!frontend/scripts/check-runtime.mjs
 !frontend/src/
 !frontend/src/**
 !frontend/public/

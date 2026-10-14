@@ -48,8 +48,10 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Build production frontend
-        run: npm run build
+        run: TANK_STANDALONE_BUILD=1 npm run build
+      - name: Verify traced runtime excludes build and lint dependencies
+        run: node scripts/check-runtime.mjs
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Verify isolated storage and browser integration
-        run: npm run test:pilot
+        run: TANK_E2E_STANDALONE=1 npm run test:pilot
