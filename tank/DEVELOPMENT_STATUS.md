@@ -24,6 +24,12 @@ user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
 
 ### Safe restore orchestration — 2026-10-14
 
+Published as `a456f88`, pushed to `origin/main`; all four CI workflows passed:
+[Go/Tank](https://github.com/web3wizzz/tank/actions/runs/38488946833),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/38488946808),
+[browser](https://github.com/web3wizzz/tank/actions/runs/38488946807),
+[contracts/Arc-local](https://github.com/web3wizzz/tank/actions/runs/38488946660).
+
 - Both Arc deployment and registration CLIs now acquire the same exclusive
   signing-lane lock before custody opens. Persistent maintenance/candidate gates
   reject concurrent workers and keep signing blocked after controller interruption.
@@ -58,11 +64,32 @@ user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
   Existing real deployment, private data and journals were not opened or changed.
 
 Independent review found no further actionable defects within this local-fixture
-scope. Next task: publish this safety milestone and add safe browser file/registration
-coordination evidence for future acceptance orchestration. Independent hosts/operator access,
+scope. Browser file/registration coordination continues below. Independent hosts/operator access,
 TLS renewal/monitoring/off-machine backup and capacity measurements, and owner
 retention/funding/operator-exit decisions remain external inputs. Do not repeat
 deployment or claim a hosted pilot passed from these local safeguards.
+
+### Browser acceptance coordination — 2026-10-14
+
+- The local/browser drill now uses correlated, versioned IPC with bounded waits
+  and listener cleanup. Allowlisted file ID, ciphertext size, status and transaction
+  hash exclude credentials, recovery keys, plaintext, filenames and diagnostics.
+  Malformed/late/wrong-phase replies, duplicates, disconnection and timeouts fail
+  closed without automatic service-action retries.
+- Before changing a local service, the parent checks phase order and the owning
+  user's real ciphertext metadata against the request. Browser tests verify owning
+  registration status and cross-user registration denial. The local coordinator's
+  status-only namespace deliberately remains `not_queued`, with no RPC, signer or
+  broadcasting. It provides no fabricated chain confirmation.
+- Validation: frontend 27 unit tests (8 protocol regressions), lint and full
+  isolated local browser pilot pass. Exact decrypted PDF bytes/Unicode filename,
+  recovery import, user isolation, process loss/spare repair, restart/restore,
+  outage/recovery, and credential/session behavior are preserved.
+- Remaining adapter work needs selected host/operator inventory and a reviewed
+  candidate-activation plan. Map browser evidence to real worker/manifest/canonical
+  observations and owned remote service controls before enabling remote execution.
+  TLS renewal, monitoring, off-machine backup, hosted capacity/failure measurements
+  and owner retention/funding/exit decisions remain external gates.
 
 ### Hosted pilot operations readiness — in progress (2026-10-13)
 

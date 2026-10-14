@@ -137,6 +137,30 @@ python3 scripts/pilot-restore.py --config /PRIVATE/fixture/config.json --execute
 
 Before remote execution can be enabled: select independent hosts/operator access;
 review ownership, timer/worker stop-and-quiesce controls, stable signing-lane storage,
-and safe candidate activation; connect browser file-ID/registration evidence and
-full node-loss/spare-repair controls. Run fresh host-specific acceptance and backup
+and safe candidate activation; map the correlated browser control protocol below
+to remote registration and full node-loss/spare-repair controls. Run fresh host-specific acceptance and backup
 measurements. Local success does not satisfy these external gates.
+
+## Browser coordination evidence
+
+The existing browser/local pilot drill now uses a versioned, correlated IPC protocol
+in `frontend/test/pilot-protocol.mjs`. Each request carries only an allowlisted
+request ID, phase, ciphertext file ID/size, registration status and optional public
+transaction hash. Credentials, recovery keys, original names, plaintext and provider
+diagnostics are excluded. The parent checks exact phases, duplicate requests and
+the owning user's stored ciphertext metadata before pausing any owned process.
+Late replies cannot advance another phase; disconnects/timeouts release listeners
+and fail without automatically retrying service actions.
+
+Browser checks include owning-file registration status and cross-user registration
+denial. The local pilot coordinator exposes a **status-only** Arc namespace with
+`not_queued`: it has no RPC, signer or broadcast worker. This prevents the fixture
+from silently claiming on-chain registration. Canonical proof is supplied separately
+by the Arc-local/read-only-validator tests. No control payload is written to a
+public report, and the recovery key stays inside the browser test process.
+
+A future hosted adapter must bind this file evidence to its real manifest and
+guarded registration job, obtain canonical receipt/readback proof, and map each
+request to reviewed owned service controls. The current local runner's source
+backup/restart operations apply only to disposable non-signing fixtures; it must
+not be reused as remote restore activation. Remote execution remains disabled.

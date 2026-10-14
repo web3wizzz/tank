@@ -8,6 +8,7 @@ import { createServer } from "node:net";
 import { createServer as createHTTPServer } from "node:http";
 import assert from "node:assert/strict";
 import { Tank } from "@tank-storage/sdk";
+import { phaseController } from "./pilot-protocol.mjs";
 
 // Everything created by this runner belongs to a separate temporary local stack.
 const frontend = fileURLToPath(new URL("..", import.meta.url));
@@ -16,7 +17,10 @@ const directory = await mkdtemp(join(tmpdir(), "tank-integration-"));
 const children = [];
 const pilot = process.argv.includes("--pilot");
 let shuttingDown = false;
+let shutdownPromise;
+let activePhase;
 function start(command, args, options = {}) {
+  if (shuttingDown) throw new Error("Local fixture shutdown prevents new service launches.");
   const child = spawn(command, args, { cwd: project, env, stdio: "ignore", ...options });
   children.push(child);
   return child;
@@ -39,11 +43,16 @@ async function stop(child) {
     child.kill("SIGTERM");
   });
 }
-async function cleanup() {
-  if (shuttingDown) return;
+function cleanup() {
+  if (shutdownPromise) return shutdownPromise;
   shuttingDown = true;
-  await Promise.all(children.map(stop));
-  await rm(directory, { recursive: true, force: true });
+  // Signal handlers and finally callers wait for the SAME shutdown operation.
+  shutdownPromise = (async () => {
+    await Promise.all(children.map(stop));
+    await activePhase?.catch(() => {});
+    await rm(directory, { recursive: true, force: true });
+  })();
+  return shutdownPromise;
 }
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.once(signal, async () => { await cleanup(); process.exit(signal === "SIGINT" ? 130 : 143); });
@@ -112,6 +121,11 @@ try {
     env.TANK_NODE_CREDENTIALS_FILE = join(directory, "node-credentials.json");
     await writeFile(env.TANK_NODE_CREDENTIALS_FILE, JSON.stringify(nodeCredentials), { mode: 0o600, flag: "wx" });
     delete env.TANK_NODE_TOKEN;
+    // Status-only fixture: no RPC, signer, broadcast worker or chain evidence.
+    env.TANK_REGISTRATION_MODE = "arc-testnet-external";
+    env.TANK_CHAIN_ID = "5042002";
+    env.TANK_REGISTRY_ADDR = "0xe1fC5025261af42dfe04788c7a09DAd3ea1EC435";
+    env.TANK_ARC_TESTNET_SENDER = "0xFdE02e33287b161f797A3C2c63EE08c3673C591E";
   }
   env.TANK_COORDINATOR_ADDR = `127.0.0.1:${await port()}`;
   env.TANK_API_URL = `http://${env.TANK_COORDINATOR_ADDR}`;
@@ -141,28 +155,48 @@ try {
       TANK_E2E_PAGINATION: "1",
       TANK_E2E_MAX_FILE_BYTES: "8192",
       ...(process.env.TANK_E2E_MEASURE === "1" ? { TANK_E2E_MEASURE: "1" } : {}),
-      ...(pilot ? { TANK_E2E_PILOT: "1" } : {}),
+      ...(pilot ? { TANK_E2E_PILOT: "1", TANK_E2E_EXPECT_REGISTRATION_STATUS: "not_queued" } : {}),
     },
     stdio: ["ignore", "inherit", "inherit", "ipc"],
   });
   let fixtures;
   let recoveryDrill;
+  const phases = phaseController(pilot);
   test.on("message", (message) => {
+    try {
+      phases.begin(message);
+    } catch {
+      // Never perform service actions for an unrecognized, duplicate or stale phase.
+      try { if (test.connected) test.send(phases.fail(message)); } catch { /* Browser's bounded wait fails closed. */ }
+      return;
+    }
+    const reply = (type, extra) => {
+      const value = type === "fixture-error" ? phases.fail(message) : phases.complete(message, type, extra);
+      if (test.connected) test.send(value);
+    };
     if (message?.type === "upload-complete") {
-      fixtures = (async () => {
+      fixtures = activePhase = (async () => {
         const { token } = JSON.parse(await readFile(alice, "utf8"));
         const sdk = new Tank({ baseURL: env.TANK_API_URL, token });
+        const info = await sdk.fileInfo(message.fileId, { signal: AbortSignal.timeout(5000) });
+        assert.ok(info.file_id === message.fileId && info.size === message.ciphertextBytes &&
+          info.filename === `${message.fileId}.tankenc`, "Control evidence must match the owning user's stored ciphertext.");
+        if (pilot) {
+          const registration = await sdk.registrationStatus(message.fileId, { signal: AbortSignal.timeout(5000) });
+          assert.ok(registration.status === "not_queued" && message.registrationStatus === registration.status &&
+            !registration.transaction_hash && message.transactionHash === "", "Local status-only fixture must not imply a confirmed chain registration.");
+        }
         for (let index = 0; index < 100; index++) {
           await sdk.tank(new TextEncoder().encode(`Pagination fixture ${index}`), { filename: `fixture-${index}.txt` });
         }
         await stop(nodes[0]);
-        if (test.connected) test.send({ type: "node-stopped" });
+        reply("node-stopped");
       })();
       fixtures.catch(() => {
-        if (test.connected) test.send({ type: "fixture-error" });
+        reply("fixture-error");
       });
     } else if (message?.type === "pilot-recovery-ready" && pilot) {
-      recoveryDrill = (async () => {
+      recoveryDrill = activePhase = (async () => {
         await fixtures;
         // Restarting our owned coordinator triggers an immediate persisted audit.
         await stop(coordinator);
@@ -193,26 +227,30 @@ try {
         await ready(`${env.TANK_API_URL}/health`, coordinator);
         // Repaired placement must tolerate losing another original node.
         await stop(nodes[1]);
-        if (test.connected) test.send({ type: "pilot-restored", databasePath: restored });
+        reply("pilot-restored", { databasePath: restored });
       })();
       recoveryDrill.catch(() => {
-        if (test.connected) test.send({ type: "fixture-error" });
+        reply("fixture-error");
       });
     } else if (message?.type === "pilot-outage-ready" && pilot) {
-      (async () => { await stop(nodes[2]); if (test.connected) test.send({ type: "pilot-outage" }); })().catch(() => {
-        if (test.connected) test.send({ type: "fixture-error" });
+      activePhase = (async () => { await stop(nodes[2]); reply("pilot-outage"); })();
+      activePhase.catch(() => {
+        reply("fixture-error");
       });
     } else if (message?.type === "pilot-recover-node" && pilot) {
-      (async () => {
+      activePhase = (async () => {
         nodes[2] = start(join(directory, "bin", "node"), [], { env: nodeEnvironments[2] });
         await ready(`${nodeURLs[2]}/health`, nodes[2]);
-        if (test.connected) test.send({ type: "pilot-available" });
-      })().catch(() => { if (test.connected) test.send({ type: "fixture-error" }); });
+        reply("pilot-available");
+      })();
+      activePhase.catch(() => { reply("fixture-error"); });
     }
   });
   await finished(test, "Browser integration");
   await fixtures;
   await recoveryDrill;
+  await activePhase;
+  assert.ok(phases.done, "Every expected control phase must finish successfully before acceptance passes.");
   // A stalled registration upstream must honor the frontend deadline and free admission.
   const stalled = createHTTPServer((request, response) => {
     if (request.url === "/list") {

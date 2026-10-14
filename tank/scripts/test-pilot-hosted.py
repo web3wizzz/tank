@@ -3,9 +3,9 @@
 
 Local restore safeguards live in pilot-restore.py and tank-restore-check. Their
 process ownership, maintenance fencing, strict snapshot comparison and canonical
-chain reconciliation have isolated fixture coverage. Remote activation and the
-browser file/registration coordination interfaces remain unimplemented. Do not
-run this preflight as hosted acceptance.
+chain reconciliation have isolated fixture coverage. Browser file/status IPC now
+has correlated, allowlisted evidence; a reviewed remote adapter and candidate
+activation remain unimplemented. Do not run this preflight as hosted acceptance.
 """
 import argparse
 import hashlib
@@ -281,7 +281,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     config = load_config(args.config)
     if args.execute_hosted_drill:
-        raise PreflightError("Hosted drill execution is unavailable: local restore safeguards require reviewed remote ownership/activation integration and browser file/registration coordination. Explicit hosts/operator access must also be configured. No services were changed.")
+        raise PreflightError("Hosted drill execution is unavailable: local restore safeguards and correlated browser evidence require reviewed remote ownership/activation integration. Explicit hosts/operator access must also be configured. No services were changed.")
     if args.validate_config_only or args.dry_run:
         print("PASS: hosted configuration and private-file metadata validated; no network or host checks performed.")
         if args.dry_run:

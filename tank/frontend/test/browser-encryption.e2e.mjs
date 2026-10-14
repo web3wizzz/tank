@@ -5,6 +5,7 @@ import { chromium } from "playwright";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import http from "node:http";
+import { pilotStep, requestEvidence } from "./pilot-protocol.mjs";
 
 // Use an existing private credential file; never log credentials or key material.
 const credentialPath = process.env.TANK_E2E_CREDENTIAL_FILE;
@@ -270,17 +271,28 @@ try {
   assert.ok(!uploaded.bytes.includes(Buffer.from(keyData.key)));
   console.log("PASS: browser encrypts PDF bytes and filename; storage receives an ID-named ciphertext envelope.");
 
+  const registration = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/tank/registrations/${id}`, { headers: {
+      "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin,
+    }, signal: AbortSignal.timeout(30_000) });
+    if (response.status === 404) return { status: "unavailable", transaction_hash: "" };
+    if (response.status !== 200) return null;
+    const value = await response.json();
+    if (value.file_id !== id) return null;
+    return { status: value.status, transaction_hash: value.transaction_hash ?? "" };
+  }, keyData.file_id);
+  assert.ok(registration, "Registration evidence must use the authenticated owning file.");
+  const pilotEvidence = { fileId: keyData.file_id, ciphertextBytes: uploaded.bytes.length,
+    registrationStatus: registration.status, transactionHash: registration.transaction_hash };
+  requestEvidence("upload-complete", pilotEvidence); // Reject malformed status/hash even without IPC.
+  if (process.env.TANK_E2E_EXPECT_REGISTRATION_STATUS) {
+    assert.ok(["not_queued", "pending", "submitted", "registered", "failed", "unavailable"].includes(process.env.TANK_E2E_EXPECT_REGISTRATION_STATUS), "Invalid expected registration state.");
+    assert.equal(registration.status, process.env.TANK_E2E_EXPECT_REGISTRATION_STATUS);
+  }
+  console.log("PASS: owning-file registration status validated; status alone is not canonical chain proof.");
+
   if (process.send) {
-    const stopped = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Test node shutdown timed out.")), 15_000);
-      process.once("message", (message) => {
-        clearTimeout(timer);
-        if (message?.type === "node-stopped") resolve();
-        else reject(new Error("Unexpected integration runner response."));
-      });
-    });
-    process.send({ type: "upload-complete" });
-    await stopped;
+    await pilotStep("upload-complete", pilotEvidence, 15_000);
     console.log("Test storage node stopped; retrieval now exercises reconstruction.");
   }
 
@@ -298,11 +310,14 @@ try {
         const headers = { "X-Tank-Workspace": "1", "X-Tank-Origin": window.location.origin };
         const list = await fetch("/api/tank/files", { headers });
         const download = await fetch(`/api/tank/files/${id}`, { headers });
-        return { listStatus: list.status, ids: (await list.json()).file_ids, downloadStatus: download.status };
+        const registration = await fetch(`/api/tank/registrations/${id}`, { headers });
+        return { listStatus: list.status, ids: (await list.json()).file_ids,
+          downloadStatus: download.status, registrationStatus: registration.status };
       }, keyData.file_id);
       assert.equal(isolation.listStatus, 200);
       assert.ok(!isolation.ids.includes(keyData.file_id));
       assert.equal(isolation.downloadStatus, 404, "A second user must not retrieve the ciphertext even knowing its ID.");
+      assert.equal(isolation.registrationStatus, 404, "A second user must not read another user's registration.");
       console.log("PASS: second user cannot list or retrieve another user's encrypted file.");
     } finally {
       await otherContext.close();
@@ -357,17 +372,8 @@ try {
     })}`);
   }
   if (process.env.TANK_E2E_PILOT === "1" && process.send) {
-    const recoveryReady = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Pilot recovery drill timed out.")), 60_000);
-      process.once("message", (message) => {
-        clearTimeout(timer);
-        if (message?.type !== "pilot-restored") { reject(new Error("Pilot recovery fixture failed.")); return; }
-        process.env.TANK_DATABASE_PATH = message.databasePath;
-        resolve();
-      });
-    });
-    process.send({ type: "pilot-recovery-ready" });
-    await recoveryReady;
+    const restoredPhase = await pilotStep("pilot-recovery-ready", pilotEvidence, 60_000);
+    if (restoredPhase.databasePath) process.env.TANK_DATABASE_PATH = restoredPhase.databasePath;
     await page.reload();
     await page.getByText("Storage connected", { exact: true }).waitFor();
     await page.getByLabel("Recovery key file").setInputFiles({ name: keyDownload.suggestedFilename(), mimeType: "application/json", buffer: recovery });
@@ -391,21 +397,11 @@ try {
       assert.equal(rejected, 404, "Backup restoration leaked another user's access.");
     } finally { await outsider.close(); }
     console.log("PASS: restored metadata, imported recovery key, repaired placement, and a second node loss preserve PDF bytes/filename and user isolation.");
-    async function fixtureStep(type, expected) {
-      const pending = new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("Pilot outage step timed out.")), 15_000);
-        process.once("message", (message) => {
-          clearTimeout(timer);
-          if (message?.type === expected) resolve(); else reject(new Error("Pilot outage fixture failed."));
-        });
-      });
-      process.send({ type }); await pending;
-    }
-    await fixtureStep("pilot-outage-ready", "pilot-outage");
+    await pilotStep("pilot-outage-ready", pilotEvidence, 15_000);
     await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Storage is temporarily unavailable" }).waitFor();
     await assert.rejects(page.waitForEvent("download", { timeout: 500 }), (error) => error.name === "TimeoutError");
-    await fixtureStep("pilot-recover-node", "pilot-available");
+    await pilotStep("pilot-recover-node", pilotEvidence, 15_000);
     const recoveredPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Retrieve file", exact: true }).click();
     const recovered = await recoveredPromise;
