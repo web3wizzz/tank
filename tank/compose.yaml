@@ -15,7 +15,7 @@ x-runtime: &runtime
 x-node: &node
   <<: *runtime
   image: tank-local-go
-  build: {context: ., dockerfile: deploy/container/Dockerfile.go}
+  build: {context: ., dockerfile: deploy/container/Dockerfile.backend}
   command: [tank-node]
   network_mode: service:coordinator
 
@@ -23,7 +23,7 @@ services:
   coordinator:
     <<: *runtime
     image: tank-local-go
-    build: {context: ., dockerfile: deploy/container/Dockerfile.go}
+    build: {context: ., dockerfile: deploy/container/Dockerfile.backend}
     ports: ["127.0.0.1:${TANK_CONTAINER_PORT:-3330}:3000"]
     environment:
       TANK_COORDINATOR_ADDR: 127.0.0.1:8080

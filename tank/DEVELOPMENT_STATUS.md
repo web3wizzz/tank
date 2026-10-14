@@ -53,6 +53,13 @@ was used. The isolated `tank-packaging-check` project was stopped with volumes
 and private fixture credentials preserved. Container-guide links and all three
 bash fences pass syntax validation. Publication/CI evidence is attached to this
 milestone's Git commit and Actions runs; existing suites were not manually rerun.
+Packaging milestone `8de8232` was pushed. Its Go CI exposed `Dockerfile.go` being
+parsed as Go source by `go vet ./...`; the follow-up renames that identical file
+to `Dockerfile.backend` and updates Compose. Go package discovery, `go vet ./...`,
+Compose validation and the renamed cached backend build pass. The Dockerfile is
+byte-identical and the runtime manifest is unchanged, so the browser smoke remains
+evidence for these image contents. SDK, contract and browser CI passed on
+`8de8232`; check all four workflows on the naming-fix publication.
 An npm installation audit reported five high-severity findings in the existing
 locked dependency tree; impact is untriaged and no forced dependency update was
 made in this packaging scope. Automated container CI and hosted TLS/per-node
