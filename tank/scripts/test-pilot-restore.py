@@ -298,13 +298,13 @@ class RestoreTests(unittest.TestCase):
 
     def test_cleanup_journal_failure_releases_lock_and_preserves_gate(self):
         durable = restore.durable
-        timer = self.config["services"][1]["pid"]
+        writers = [self.config["services"][0]["pid"], self.config["services"][1]["pid"]]
 
         def fail(path, state, **kwargs):
             if (
                 path == Path(self.config["journal"])
                 and state.get("phase") == "copied"
-                and state.get("paused") == [timer]
+                and state.get("paused") == writers
             ):
                 raise OSError("synthetic journal unavailable")
             return durable(path, state, **kwargs)
@@ -319,6 +319,20 @@ class RestoreTests(unittest.TestCase):
         self.assertTrue(self.gate().exists())
         with open(self.config["lane_lock"], "r+") as lane:
             fcntl.flock(lane, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_failed_restore_keeps_metadata_writers_quiescent(self):
+        def interrupt(phase):
+            if phase == "copied":
+                raise KeyboardInterrupt
+
+        with self.assertRaises(KeyboardInterrupt):
+            self.execute(checkpoint=interrupt)
+        for service in self.config["services"][:2]:
+            self.assertIn(restore.identity(service), ("T", "t"))
+        self.assertNotIn(restore.identity(self.config["services"][2]), ("T", "t"))
+        self.execute(resume=True)
+        for service in self.config["services"]:
+            self.assertNotIn(restore.identity(service), ("T", "t"))
 
     def test_killed_controller_recovers_its_durable_phase(self):
         marker = self.root / "validator-started"

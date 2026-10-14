@@ -60,8 +60,10 @@ The controller:
    and suppressed child diagnostics. It verifies unchanged source/candidate state
    and deployment journal digests afterwards. Only a verified, unchanged original
    live lane can be released; the candidate remains inactive and signing-blocked.
-6. Resumes owned coordinator/node processes in cleanup. A failed/interrupted run
-   leaves the timer paused and signing gated. The same private controller journal
+6. Resumes owned node processes in cleanup. A failed/interrupted run leaves the
+   coordinator and timer paused and signing gated, preventing automatic metadata
+   maintenance from invalidating the saved resume baseline. Successful proof
+   resumes all declared services. The same private controller journal
    resumes with `--resume`; it rechecks identities, state, binary and chain rather
    than replacing a candidate or trusting a previous incomplete phase.
 

@@ -53,7 +53,7 @@ Published as `a456f88`, pushed to `origin/main`; all four CI workflows passed:
 - Evidence: isolated Python fixtures/local processes cover concurrent-worker
   rejection, stale revocations, metadata write exclusion, timeout, PID safety,
   interrupted pause/restore, cleanup failure and hard-killed-controller resume.
-  All 16 controller tests, 30 hosted-preflight tests and 4 template checks pass;
+  All 17 controller tests, 30 hosted-preflight tests and 4 template checks pass;
   full Go race tests, vet/build, and pinned loopback Arc suite (12 contract tests
   with 256 fuzz cases, 5 integration tests) pass. New real
   loopback Arc/TLS/SQLite restore proof verifies unchanged bytes after snapshot
@@ -107,6 +107,13 @@ independent hosts/operator access and activation ownership; monitoring/TLS/off-m
 backup choices; measured hosted capacity/recovery; approved retention/funding/exit
 terms. Use these to complete the remote adapter and real acceptance rather than
 repeating completed local checks or deploying another registry.
+
+Final interrupted-recovery hardening: failure cleanup keeps both coordinator and
+registration timer quiescent until proof succeeds, preventing automatic metadata
+maintenance from invalidating the strict saved resume baseline. Selected nodes
+resume in cleanup; successful reconciliation resumes all declared fixture services.
+This is covered by a dedicated local process regression; source histories remain
+unchanged and remote execution remains disabled.
 
 ### Hosted pilot operations readiness — in progress (2026-10-13)
 

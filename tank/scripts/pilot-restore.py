@@ -454,14 +454,15 @@ def run(config, resume=False, dry_run=False, checkpoint=lambda _: None):
                         restored_lock.close()
                 finally:
                     if state is not None:
-                        # Restore original local coordinator/nodes. Keep timer paused while
-                        # a failed/interrupted run's persistent gate blocks signing.
+                        # Keep metadata writers quiescent after failure so their
+                        # maintenance writes cannot invalidate the resume baseline.
+                        # Nodes may resume; coordinator/timer wait for reconciliation.
                         remaining = []
                         for service in config["services"]:
                             if service["pid"] not in state["paused"]:
                                 continue
                             if (
-                                service["role"] == "registration-timer"
+                                service["role"] in ("coordinator", "registration-timer")
                                 and gate.exists()
                             ):
                                 remaining.append(service["pid"])
