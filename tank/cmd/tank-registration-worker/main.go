@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"tank.local/tank/internal/metadata"
+	"tank.local/tank/internal/registrationguard"
 	"tank.local/tank/internal/registry"
 )
 
@@ -28,11 +30,21 @@ func run() error {
 		path = "data/local-demo/tank.sqlite"
 	}
 
-	store, err := metadata.Open(ctx, path)
+	store, err := metadata.OpenExisting(ctx, path)
 	if err != nil {
 		return err
 	}
 	defer store.Close()
+	// Fence the entire unlocked local send process, not just individual job leases.
+	lane, err := filepath.Abs(path + ".local-registration.lock")
+	if err != nil {
+		return err
+	}
+	guard, err := registrationguard.Acquire(lane)
+	if err != nil {
+		return err
+	}
+	defer guard.Close()
 
 	worker, err := registry.NewWorker(store, registry.Config{
 		RPCURL:     os.Getenv("TANK_CHAIN_RPC"),

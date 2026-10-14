@@ -11,12 +11,13 @@ import (
 )
 
 type Config struct {
-	Limits          limits.Config
-	CoordinatorAddr string
-	NodeAddr        string
-	NodeDataDir     string
-	DatabasePath    string
-	MaxSegmentBytes int
+	Limits                  limits.Config
+	CoordinatorAddr         string
+	NodeAddr                string
+	NodeDataDir             string
+	DatabasePath            string
+	RequireExistingDatabase bool
+	MaxSegmentBytes         int
 }
 
 func Load() (Config, error) {
@@ -31,6 +32,13 @@ func Load() (Config, error) {
 		NodeDataDir:     value("TANK_NODE_DATA_DIR", "data/node1"),
 		DatabasePath:    value("TANK_DATABASE_PATH", "data/tank.sqlite"),
 		MaxSegmentBytes: 4 << 20,
+	}
+
+	if raw, ok := os.LookupEnv("TANK_REQUIRE_EXISTING_DATABASE"); ok {
+		if raw != "true" && raw != "false" {
+			return Config{}, fmt.Errorf("TANK_REQUIRE_EXISTING_DATABASE must be true or false")
+		}
+		c.RequireExistingDatabase = raw == "true"
 	}
 
 	if raw, ok := os.LookupEnv("TANK_MAX_SEGMENT_BYTES"); ok {

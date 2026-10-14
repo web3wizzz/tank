@@ -13,6 +13,12 @@ and built image IDs. Update base digests deliberately and revalidate. Builds nee
 access to public image/module/npm registries and the existing
 font build dependency. No runtime secrets are build arguments.
 
+The frontend runtime uses Next's traced standalone artifact instead of copying
+the complete build workspace. Static/public assets are copied separately and the
+generated `server.js` is the entrypoint. A build-time inventory rejects lint/test
+tooling in the actual runtime artifact. See [dependency exposure](dependency-exposure.md)
+for the unresolved braces development advisory and the limits of npm audit evidence.
+
 ## Start a separate local stack
 
 From `tank/`, create a private environment once. Do not regenerate it while
@@ -125,3 +131,36 @@ For a metadata snapshot, use `tank-backup` inside the coordinator with a **new**
 a signing/restore permit; see [backup safety](backup-restore.md). Containerized
 hosted signing/restore orchestration and automated container CI remain separate
 integration work, not features of this local packaging milestone.
+
+
+## Opt-in local registration fixture
+
+The base simulation remains chainless. To exercise queued registration on an
+isolated development chain, use the same private environment and project name
+for both commands:
+
+```bash
+docker compose --env-file /private/tank-local.env -p tank-local -f compose.yaml -f compose.registration.yaml up --build -d --wait --wait-timeout 180
+docker compose --env-file /private/tank-local.env -p tank-local -f compose.yaml -f compose.registration.yaml down --timeout 30
+```
+
+The overlay fixes chain 31337, a known development registrant and the expected
+fixture registry. Anvil listens only inside the coordinator network namespace;
+no RPC port is published. The worker shares the local metadata volume and queues
+from the coordinator. Its stable database-adjacent process lock fences the whole local worker;
+registration leases also protect queued persistence. The database must already
+be initialized and its parent must be private and owned by the worker UID. Contract bytecode is verified before fixture readiness;
+chain state persists in its own named volume. Missing registry with a changed
+nonce fails rather than resetting history. Never mount public custody here.
+
+Public Arc signing is not supported by this development overlay. It remains an
+explicit separately authorized hosted-worker operation using existing signer
+custody, authoritative journal, canonical proof and fee limits. No Arc deployment,
+public RPC or real fee expenditure occurs in container CI. Do not change only the
+RPC URL to repurpose this fixture as a public signer.
+
+The Containers workflow builds all three images, checks readiness, imports a
+browser recovery key, verifies encrypted exact retrieval and cross-user denial,
+waits for local registration, then restarts the same CI volumes and compares file
+and transaction records. Its cleanup is limited to a generated CI project. This
+is local container evidence, not independent-host acceptance.

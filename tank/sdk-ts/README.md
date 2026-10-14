@@ -126,10 +126,11 @@ rejects subsequent requests. Renew with `tank-access issue --user-id USER_ID
 remain valid until expiry or explicit revocation. See the
 [credential guide](../docs/user-credentials.md).
 
-SDK uploads send the supplied bytes without automatic encryption. Encrypt
-sensitive input yourself or use the browser workspace; its recovery key is
-separate from authorization and cannot replace a user token. A file ID is a hash
-of the uploaded bytes, so browser IDs hash ciphertext.
+Raw-byte SDK uploads send the supplied bytes without automatic encryption.
+Use the explicit local encryption and recovery import/export helpers described
+in [SDK and CLI encryption](../docs/sdk-encryption.md). Recovery keys are separate from
+authorization and cannot replace a user token. File IDs hash the stored bytes;
+encrypted IDs hash ciphertext.
 
 Treat 413 as a file-size error, 429 as temporary pressure (honor `Retry-After`
 and avoid unbounded automatic retries), and 507 as quota/capacity exhaustion.

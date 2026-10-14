@@ -53,3 +53,13 @@ only. A disabled-by-default systemd timer template runs bounded passes; see
 [pilot operations](pilot-operations.md). The registry stores commitments only;
 frontend, coordinator, and independent storage-node hosting remain separate pilot
 work.
+
+
+The local worker now requires an initialized database and holds a stable private
+`DATABASE_PATH.local-registration.lock` for its entire process lifetime, in
+addition to registration job leases. Do not delete that lock inode or run a second
+unlocked signer outside the guarded worker. Its parent must be owned by the worker
+and mode 0700. The local launcher makes its demo directory private and waits for
+coordinator initialization before starting the worker. Direct use requires
+initializing the database first; a missing authority database is not bootstrapped
+by the worker. These same-host controls do not provide cross-host custody fencing.

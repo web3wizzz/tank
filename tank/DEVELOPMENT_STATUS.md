@@ -1,5 +1,170 @@
 # Tank Phase 1 development status
 
+### Review repair checkpoint and acceptance — 2026-10-14
+
+| Review area | Implemented evidence | Remaining gate |
+| --- | --- | --- |
+| Dependency exposure | Runtime image inventory excludes lint/build tooling; production-only audit zero; standalone browser works | Five dev-tool entries remain under unresolved braces advisory; no unsafe downgrade |
+| Disaster recovery | Lost-authority/interrupted restore tests retain gates; missing/empty DB refused | Independent durable complete-tip authority and signing-state replication not implemented |
+| New uploads | Healthy/spare placement, capacity and concurrent/node-loss tests, integrity retrieval | Real distinct-host capacity/availability acceptance; orphan shard cleanup remains separate |
+| Container registration | Explicit local-chain overlay; same-host DB; whole-process worker lock; queued/restart registration | Public Arc container signer not supplied or implicitly authorized |
+| Container CI | All images, readiness, encrypted browser retrieval/key import, isolation and restart pass | Independent hosts are not represented by this CI |
+| CLI/SDK encryption | Opt-in helpers/CLI, recovery export/import, actual Go/TS/browser interoperability | User key custody remains required; raw APIs remain raw |
+| Coordinator availability | Existing-DB startup guard; concrete manual promotion/consensus/fencing design | Shared authority, split-brain prevention and cross-host signer fencing block automatic failover |
+| Hosted pilot | Explicit gates preserved | Host/operator access, TLS, monitoring, off-machine backups and measured capacity still required |
+
+- All five GitHub workflows pass for 471fb25, including Containers and the full
+  standalone browser pilot. Container logs prove encrypted exact PDF/name recovery,
+  user isolation, local registered transactions and persistence across restart.
+  The runtime inventory contains 68 traced packages and excludes lint/build tooling.
+- Final recovery hardening also refuses missing/schema-zero public registration
+  authority before opening custody or RPC; focused race tests, vet and build pass.
+  This cannot establish freshness of a valid stale copy. Signing after loss of
+  newest authority remains unsupported and recovery-gated.
+- Added `.recovery.json` exclusions to Git and the default-deny Docker context;
+  docs use private recovery paths. Ignore patterns cannot protect arbitrary names
+  or already tracked secrets: private placement and explicit staging remain needed.
+- Work is committed and published to `codex/tank-review-fixes` / draft PR #1.
+  No secret, deployed contract, public transaction, real fee expenditure, journal
+  deletion, budget reset, mainnet change or paid infrastructure was introduced.
+  This checkpoint is implementation/review evidence, not an independent audit.
+
+### Review repair: final runtime image boundary — 2026-10-14
+
+- Removed inherited npm/npx/corepack from the frontend runtime stage; the generated
+  standalone server requires Node only. Container CI probes the final image under
+  a read-only/no-network/no-capability fixture before functional acceptance, and
+  cleans up only its uniquely named CI-owned probe container.
+- Application artifact inventory and full image package-manager checks have
+  different scopes. Neither is a complete OS vulnerability scan. The unresolved
+  development braces advisory stays reported; no finding is suppressed.
+- Final public registration guard is race-tested before custody; all previously
+  verified browser/container acceptance stays required on this checkpoint.
+
+### Review repair: launcher fencing and container diagnostics — 2026-10-14
+
+- A fresh local launcher now makes its demo directory private and waits under a
+  bounded deadline for initialized coordinator state before starting the guarded
+  worker. A disposable real-process drill passes: fresh bootstrap, queued local
+  registration and rejection of a second worker holding the same signing lane.
+- All four non-container workflows pass on 29f9054, including the full browser
+  pilot, explicit Node interoperability and Linux PID/proc recovery tests.
+  Container images build and runtime inventory passes (68 traced packages), but
+  local-chain startup still fails; image acceptance is not complete.
+- Added explicit runtime dynamic-loader dependencies and safe fixture diagnostics
+  to resolve startup without weakening readiness. CI prints only synthetic chain
+  and worker service logs on failure, with development key banners redirected.
+  Container rerun remains required; no independent-host or public signing claim.
+
+### Review repair: CI integration corrections — 2026-10-14
+
+- GitHub builds caught an Arc fixture GLIBC_2.39 requirement absent from Bookworm;
+  switched only the local-chain fixture to pinned Ubuntu 24.04. No tool downgrade,
+  public signer change or readiness bypass. Browser pilot now requires upload
+  readiness with three healthy nodes including the spare, matching the new tested
+  placement behavior; degradation and repair checks remain enforced.
+- Go CI explicitly installs Node 24 for actual source interoperability and runs
+  both new disaster-recovery boundary regressions. Local pilot template/env tests
+  pass. The existing PID/proc restore suite cannot run in this execution surface
+  (child PID not visible under /proc); it remains enforced in Linux GitHub CI.
+- SDK, Go and contract workflows passed on bd2227e; browser/container acceptance
+  requires rerun after these integration corrections. Do not claim image success
+  before that result. All implemented work is checkpointed on the review branch.
+
+### Review repair: opt-in CLI/SDK encryption — 2026-10-14
+
+- Added Go and TypeScript helpers for the browser v1 AES-256-GCM envelope,
+  authenticated filename metadata and bounded recovery JSON import/export.
+  Raw APIs remain unchanged; ciphertext IDs still hash the complete stored bytes.
+  [Encryption guide](docs/sdk-encryption.md) states which interfaces encrypt.
+- CLI encrypted upload persists private no-overwrite recovery JSON before any
+  request, retaining it after uncertain failures. Recovery retrieval checks the
+  ciphertext ID, authenticates and creates private no-overwrite plaintext output.
+- Full Go race suite, vet and builds pass; TypeScript check and 23 tests pass.
+  Actual browser-source/Go/TypeScript interoperability tests cover both directions,
+  binary content and Unicode filenames. CLI tests prove pre-upload key persistence,
+  exact retrieval, tamper rejection and no-overwrite behavior. Node is required
+  for the interoperability gate; Go-only runs explicitly skip that gate.
+- Encryption does not supply missing authorization/manifests or recover lost keys.
+  Caller-owned plaintext and immutable key strings cannot be reliably zeroed.
+  Independent key custody and authoritative host-loss recovery remain separate.
+
+### Review repair: isolated container registration and CI — 2026-10-14
+
+- Added an explicit opt-in Compose overlay with a loopback-only chain 31337,
+  bytecode-verified fixture registry, persisted chain volume and local worker
+  sharing the coordinator SQLite volume. The worker refuses missing/uninitialized
+  DB state and holds the stable process-wide guard while handling queued jobs.
+  Public Arc custody, journals and budgets are never mounted or altered.
+- Pinned Arc fixture tooling installs with checksum verification and no archive
+  ownership restoration. Its local deployment bytecode and restart state pass
+  direct fixture checks. Shell syntax and bounded acceptance Python compile pass.
+- New Containers CI builds Go, standalone frontend and fixture-chain images,
+  runs browser encrypted upload/retrieve/recovery import and isolation, waits for
+  queued registration, restarts the same volumes and compares file/transaction
+  persistence. Cleanup is restricted to generated CI-owned projects/volumes.
+- Docker is not available locally. Full image execution is pending this CI run;
+  do not equate direct fixture or source checks with container acceptance.
+  Public signing containerization remains outside this local-only overlay.
+
+### Review repair: healthy-node upload placement — 2026-10-14
+
+- New files probe all configured nodes and choose three eligible distinct node
+  endpoints; a healthy spare replaces a failed original node. Coding remains 4+2,
+  with two shards per chosen node per segment, and existing manifests stay intact.
+  Deployment must map distinct endpoints to actual distinct failure domains.
+- Whole-file observed byte/file headroom is checked before writes; nodes retain
+  their atomic capacity enforcement under concurrent uploads. If a node fails
+  partway through a shard pair, both indices move to another unused candidate.
+  No manifest is published until all shards are accepted. Partial failed writes
+  may retain orphan shards; observed headroom is not a distributed reservation.
+- Five new race-tested scenarios pass: failed original, insufficient node capacity,
+  mid-pair write failure, insufficient healthy nodes with no published manifest,
+  and concurrent new uploads. Exact integrity-checked retrieval and recovery after
+  one selected node fails also pass. Full coordinator race suite passes.
+
+### Review repair: recovery boundary and coordinator startup — 2026-10-14
+
+- Two new loss-boundary regressions preserve stopped/gated custody after loss of
+  newest authority and interrupted recovery. Matching chain nonce never proves
+  complete authority. Pilot startup now uses existing initialized SQLite only;
+  missing paths and schema zero cannot silently bootstrap. Actual revocations
+  survive reopen tests. A valid stale database remains undetectable by this guard.
+- [Recovery design](docs/disaster-recovery-design.md) specifies an independent
+  durable acknowledgement barrier, signed intents/journals, budget reservations,
+  credential revocations and custody fencing. No independent backup authority or
+  zero-loss guarantee is implemented. Asynchronous snapshots remain insufficient
+  after newest-state loss, and signing remains blocked in that case.
+- [Coordinator availability](docs/coordinator-availability.md) specifies manual
+  promotion gates and future consensus/fencing. No automatic failover is claimed.
+  Actual host selection, access, operational TLS, monitoring, off-machine backups
+  and independent capacity measurements remain hosted acceptance gates.
+- Evidence: full Go race suite, two Python loss-boundary tests and new existing-DB
+  startup/revocation tests pass. No deployed contract, fee budget or journal reset.
+
+### Review repair: production runtime dependency isolation — 2026-10-14
+
+- Reproduced five high frontend npm entries tracing to one unresolved braces
+  advisory in the eslint-config-next lint chain. Full audit remains nonzero;
+  production-only audit reports zero findings. No forced downgrade, override,
+  or suppression was applied. [Exposure review](docs/dependency-exposure.md)
+  distinguishes the lockfile graph from copied runtime image contents.
+- Container frontend now builds Next standalone output and copies only traced
+  production files plus static/public assets. Developer next start remains
+  unchanged. A runtime inventory fails on copied lint/build/test packages or
+  artifact-escaping symlinks; three regression tests pass. The actual standalone
+  build and 70-package inventory pass, as do frontend tests and lint.
+- Browser CI now exercises the generated standalone server and checks its
+  inventory, rather than merely validating an unrelated full-workspace server.
+  All four GitHub workflows passed for commit 79618c3, including standalone
+  browser acceptance. Docker is unavailable locally; image acceptance is
+  delegated to the new disposable Containers workflow. Local browser download
+  remains blocked by a truncated archive.
+- Remaining repair order: newest-authoritative-state disaster recovery,
+  healthy-node new-upload placement, container registration/CI, opt-in SDK/CLI
+  encryption, coordinator recovery, and independent hosted acceptance. Preserve
+  fail-closed signing, deployed registry, and all existing budgets.
+
 ## Current continuation scope — 2026-10-14
 
 Continue the hosted Arc Testnet pilot backlog in [`AGENTS.md`](AGENTS.md). The
