@@ -2,8 +2,9 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-mkdir -p bin data/local-demo
 umask 077
+mkdir -p bin data/local-demo
+chmod 0700 data/local-demo
 
 source scripts/init-local-env.sh
 
@@ -65,6 +66,16 @@ done
 pids+=("$!")
 
 if [[ "$registration_enabled" == true ]]; then
+  # The guarded worker must see a fully initialized authority database.
+  deadline=$((SECONDS + 20))
+  until curl --fail --silent --show-error --max-time 1 \
+    "http://127.0.0.1:8080/health" >/dev/null 2>&1; do
+    if ! kill -0 "${pids[-1]}" 2>/dev/null || ((SECONDS >= deadline)); then
+      echo "Coordinator initialization failed; registration remains stopped." >&2
+      exit 1
+    fi
+    sleep 0.1
+  done
   ./bin/tank-registration-worker > data/local-demo/registration-worker.log 2>&1 &
   pids+=("$!")
   echo "Registration worker started; log: data/local-demo/registration-worker.log"

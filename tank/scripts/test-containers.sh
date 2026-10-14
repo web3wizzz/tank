@@ -16,6 +16,11 @@ with open(sys.argv[1], 'x') as f:
 PY
 compose=(docker compose --env-file "$envfile" -p "$project" -f compose.yaml -f compose.registration.yaml)
 cleanup() {
+  result=$?
+  if ((result != 0)); then
+    # Only these synthetic fixture services; Anvil's key banner is redirected.
+    "${compose[@]}" logs --no-color --tail 40 local-chain registration-worker || true
+  fi
   # The generated project name exclusively owns these ephemeral CI volumes.
   "${compose[@]}" down --volumes --timeout 30 >/dev/null 2>&1 || true
   rm -rf "$fixture"

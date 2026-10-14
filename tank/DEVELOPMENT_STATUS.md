@@ -1,5 +1,20 @@
 # Tank Phase 1 development status
 
+### Review repair: launcher fencing and container diagnostics — 2026-10-14
+
+- A fresh local launcher now makes its demo directory private and waits under a
+  bounded deadline for initialized coordinator state before starting the guarded
+  worker. A disposable real-process drill passes: fresh bootstrap, queued local
+  registration and rejection of a second worker holding the same signing lane.
+- All four non-container workflows pass on 29f9054, including the full browser
+  pilot, explicit Node interoperability and Linux PID/proc recovery tests.
+  Container images build and runtime inventory passes (68 traced packages), but
+  local-chain startup still fails; image acceptance is not complete.
+- Added explicit runtime dynamic-loader dependencies and safe fixture diagnostics
+  to resolve startup without weakening readiness. CI prints only synthetic chain
+  and worker service logs on failure, with development key banners redirected.
+  Container rerun remains required; no independent-host or public signing claim.
+
 ### Review repair: CI integration corrections — 2026-10-14
 
 - GitHub builds caught an Arc fixture GLIBC_2.39 requirement absent from Bookworm;

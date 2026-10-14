@@ -4,6 +4,12 @@ umask 077
 rpc=http://127.0.0.1:8545
 registry=0x5FbDB2315678afecb367f032d93F642f64180aa3
 sender=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+# Verify dynamic loader/runtime support without printing development keys.
+arc-anvil --version
+arc-cast --version
+[[ -r /fixture/creation.txt && -r /fixture/runtime.txt && -w /chain ]] || {
+ echo 'Fixture files must be readable and the owned chain volume writable.' >&2; exit 1;
+}
 # Redirect Anvil's development-account banner; never emit private fixture keys.
 arc-anvil --host 127.0.0.1 --port 8545 --chain-id 31337 \
   --state /chain/state.json --state-interval 1 > /tmp/local-chain.log 2>&1 &
