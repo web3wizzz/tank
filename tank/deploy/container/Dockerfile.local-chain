@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
+FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS build
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY scripts/install-arc-foundry.sh /tmp/install-tools.sh
@@ -10,11 +10,12 @@ RUN /tools/arc-forge build --root /contract \
     && /tools/arc-forge inspect --root /contract TankRegistry deployedBytecode > /contract/runtime.txt
 
 # This image is a private, loopback-only fixture, never an Arc public signer.
-FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
+FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS runtime
 COPY --from=build /tools/arc-anvil /tools/arc-cast /usr/local/bin/
 COPY --from=build /contract/creation.txt /contract/runtime.txt /fixture/
 COPY --chmod=755 deploy/container/run-local-chain.sh /usr/local/bin/run-local-chain
-RUN mkdir -p /chain && chown node:node /chain && chmod 0700 /chain \
+RUN groupadd -g 10001 tank && useradd -u 10001 -g tank -M -s /usr/sbin/nologin tank \
+    && mkdir -p /chain && chown tank:tank /chain && chmod 0700 /chain \
     && chmod 0755 /usr/local/bin/arc-anvil /usr/local/bin/arc-cast
-USER node
+USER 10001:10001
 CMD ["run-local-chain"]

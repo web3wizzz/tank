@@ -34,6 +34,11 @@ jobs:
           cache-dependency-path: tank/go.sum
           cache: true
 
+      - name: Set up Node for encryption interoperability
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       - name: Download dependencies
         run: go mod download
 
@@ -55,6 +60,7 @@ jobs:
           python3 scripts/test-pilot-templates.py
           python3 scripts/test-pilot-hosted-tests.py
           python3 -W error::ResourceWarning scripts/test-pilot-restore.py
+          python3 -W error::ResourceWarning scripts/test-disaster-recovery-boundary.py
           python3 scripts/test-arc-testnet.py
 
       - name: Static checks

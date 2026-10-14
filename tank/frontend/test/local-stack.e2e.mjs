@@ -228,7 +228,7 @@ try {
           const result = await response.json();
           if (result.last_audit?.state === "completed" && result.metadata?.repair_jobs === 0 &&
               result.nodes?.some((node) => !node.initial_placement && node.capacity?.used_files > 0)) {
-            assert.equal(result.upload_ready, false);
+            assert.equal(result.upload_ready, true, "Three healthy eligible nodes including the spare must admit new uploads.");
             assert.equal(result.degraded, true);
             repaired = true;
             break;

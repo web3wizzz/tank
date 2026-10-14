@@ -1,5 +1,20 @@
 # Tank Phase 1 development status
 
+### Review repair: CI integration corrections — 2026-10-14
+
+- GitHub builds caught an Arc fixture GLIBC_2.39 requirement absent from Bookworm;
+  switched only the local-chain fixture to pinned Ubuntu 24.04. No tool downgrade,
+  public signer change or readiness bypass. Browser pilot now requires upload
+  readiness with three healthy nodes including the spare, matching the new tested
+  placement behavior; degradation and repair checks remain enforced.
+- Go CI explicitly installs Node 24 for actual source interoperability and runs
+  both new disaster-recovery boundary regressions. Local pilot template/env tests
+  pass. The existing PID/proc restore suite cannot run in this execution surface
+  (child PID not visible under /proc); it remains enforced in Linux GitHub CI.
+- SDK, Go and contract workflows passed on bd2227e; browser/container acceptance
+  requires rerun after these integration corrections. Do not claim image success
+  before that result. All implemented work is checkpointed on the review branch.
+
 ### Review repair: opt-in CLI/SDK encryption — 2026-10-14
 
 - Added Go and TypeScript helpers for the browser v1 AES-256-GCM envelope,
