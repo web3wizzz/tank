@@ -62,16 +62,19 @@ func (s *Service) operationsHandler(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	workers.Wait()
-	ready := true
+	eligibleNodes := 0
 	degraded := metadataStatus.RepairJobs > 0
 	for _, result := range results {
 		if !result.Available {
 			degraded = true
 		}
-		if result.InitialPlacement && (!result.Available || result.Capacity.AtCapacity) {
-			ready = false
+		if result.Available && !result.Capacity.AtCapacity {
+			eligibleNodes++
 		}
 	}
+	// Readiness means a placement may be admitted, not a reservation for a
+	// particular file; upload admission checks actual whole-file headroom.
+	ready := eligibleNodes >= 3
 	if s.resourceLimits.TotalStorageBytes > 0 && metadataStatus.CommittedBytes >= s.resourceLimits.TotalStorageBytes {
 		ready = false
 	}

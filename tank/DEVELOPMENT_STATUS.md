@@ -1,5 +1,21 @@
 # Tank Phase 1 development status
 
+### Review repair: healthy-node upload placement — 2026-10-14
+
+- New files probe all configured nodes and choose three eligible distinct node
+  endpoints; a healthy spare replaces a failed original node. Coding remains 4+2,
+  with two shards per chosen node per segment, and existing manifests stay intact.
+  Deployment must map distinct endpoints to actual distinct failure domains.
+- Whole-file observed byte/file headroom is checked before writes; nodes retain
+  their atomic capacity enforcement under concurrent uploads. If a node fails
+  partway through a shard pair, both indices move to another unused candidate.
+  No manifest is published until all shards are accepted. Partial failed writes
+  may retain orphan shards; observed headroom is not a distributed reservation.
+- Five new race-tested scenarios pass: failed original, insufficient node capacity,
+  mid-pair write failure, insufficient healthy nodes with no published manifest,
+  and concurrent new uploads. Exact integrity-checked retrieval and recovery after
+  one selected node fails also pass. Full coordinator race suite passes.
+
 ### Review repair: recovery boundary and coordinator startup — 2026-10-14
 
 - Two new loss-boundary regressions preserve stopped/gated custody after loss of
