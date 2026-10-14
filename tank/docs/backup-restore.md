@@ -36,22 +36,24 @@ pilot's documented recovery-point objective.
 ## Restore drill
 
 1. Stop only the services owned by the drill. Keep existing pilot data intact.
-2. Copy a chosen snapshot into a **new** private recovery directory. Verify its
-   checksum and integrity; never overwrite the live database during a drill.
+2. Compare the chosen snapshot's complete schema/table state with the frozen,
+   newest live database. Reject any mismatch, including jobs, nonce/spend history,
+   credentials and access changes. Publish only at a **new** private recovery path;
+   verify integrity and never overwrite the live database during a drill.
 3. **Pause the public registration worker before any restore.** Keep the newest
    signed-transaction journal and spend reservations from the live database. A
    snapshot can predate a signed or submitted transaction; restoring it as the
    active worker database can lose nonce ownership and understate already-spent
    budget. Never resume broadcasting from a stale snapshot alone.
-4. Point the recovery coordinator at the fresh copy. Use the matching
-   configuration, stable node URLs, credential secrets, and session secret.
-   Keep the registration worker stopped and use read-only RPC checks to reconcile
-   every transaction submitted after the snapshot against its canonical receipt
-   and registry record. Preserve signed bytes and transaction hashes. Reconcile
-   the newest spend ledger before creating or broadcasting any further intent.
-5. Reapply credential revocations and user-access changes made after the snapshot
-   before admitting real users. Old snapshots include the earlier credential
-   state; restoring them can otherwise reactivate a subsequently revoked key.
+4. Keep the candidate inactive and signing-blocked. Run the read-only validator
+   against every historical signed transaction, canonical receipt/registry record,
+   account nonce and cumulative reservation. Preserve all bytes/hashes. The local
+   controller permits only the unchanged original lane to resume after proof;
+   remote candidate activation is not implemented or enabled.
+5. Reject snapshots missing any newer credential revocation or user-access change.
+   Never reactivate an earlier credential state or guess a merge to make a drill
+   pass. Recovery without the newest live comparison baseline needs separately
+   reviewed authoritative history and remains blocked.
 6. If restoring after a crashed worker, allow durable leases to expire before
    retrying. Preserve recorded transaction hashes; never reset jobs blindly.
 7. Sign in with a synthetic pilot credential, import its private browser recovery

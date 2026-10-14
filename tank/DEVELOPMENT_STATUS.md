@@ -71,6 +71,12 @@ deployment or claim a hosted pilot passed from these local safeguards.
 
 ### Browser acceptance coordination — 2026-10-14
 
+Published as `49d3be3`, pushed to `origin/main`; all four CI workflows passed:
+[Go/Tank](https://github.com/web3wizzz/tank/actions/runs/38489989576),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/38489989587),
+[browser/build](https://github.com/web3wizzz/tank/actions/runs/38489989527),
+[contracts/Arc-local](https://github.com/web3wizzz/tank/actions/runs/38489989557).
+
 - The local/browser drill now uses correlated, versioned IPC with bounded waits
   and listener cleanup. Allowlisted file ID, ciphertext size, status and transaction
   hash exclude credentials, recovery keys, plaintext, filenames and diagnostics.
@@ -90,6 +96,17 @@ deployment or claim a hosted pilot passed from these local safeguards.
   observations and owned remote service controls before enabling remote execution.
   TLS renewal, monitoring, off-machine backup, hosted capacity/failure measurements
   and owner retention/funding/exit decisions remain external gates.
+
+Final local readiness review: independent review findings were resolved, staged
+files were checked for secrets/private artifacts, and the manual backup runbook
+was corrected to reject stale revocation/accounting state instead of suggesting
+candidate activation or a guessed merge. No public transaction was submitted,
+original private data/journals were not inspected or modified, and budgets remain
+unchanged. The hosted service is still unreleased. Next external inputs: selected
+independent hosts/operator access and activation ownership; monitoring/TLS/off-machine
+backup choices; measured hosted capacity/recovery; approved retention/funding/exit
+terms. Use these to complete the remote adapter and real acceptance rather than
+repeating completed local checks or deploying another registry.
 
 ### Hosted pilot operations readiness — in progress (2026-10-13)
 

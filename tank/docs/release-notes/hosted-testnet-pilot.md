@@ -15,6 +15,14 @@ runs on local owned processes; no independently hosted pilot is claimed.
   [`arc-testnet-acceptance.md`](../arc-testnet-acceptance.md).
 - Hardened systemd templates for coordinator, node, frontend, and a bounded Arc
   registration timer. These templates have not been installed on remote hosts.
+- Shared signing-lane locks and persistent restore gates; a local-only controller
+  rejects stale snapshots, preserves revocations/accounting and resumes interrupted
+  verification. Read-only Arc history reconciliation verifies signed intents,
+  canonical receipts/readback, exact reservations and nonce ownership. Restore
+  candidates remain inactive; remote failure/activation execution stays disabled.
+- Correlated browser control evidence and phase ordering, with credentials and
+  recovery keys excluded. The local status fixture stays `not_queued` and supplies
+  no fabricated public-chain confirmation.
 
 ## Verification
 

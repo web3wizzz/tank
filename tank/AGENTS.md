@@ -42,6 +42,7 @@ for private artifacts, commit, push, check CI, and update
 Current local restore work uses a persistent signing gate and shared process lock,
 strict newest-live/snapshot equality (including revocations and spend history), and
 read-only canonical chain reconciliation. Never bypass a failed gate or activate
-its restore candidate. Remote execution is disabled pending reviewed activation,
-browser coordination, and selected hosts/operator access. Continue safe local
+its restore candidate. Correlated browser IPC has local coverage. Remote execution
+is disabled pending reviewed activation and remote IPC/service integration, plus
+selected hosts/operator access. Continue safe local
 interface work; do not repeat unchanged passing drills or public deployment.

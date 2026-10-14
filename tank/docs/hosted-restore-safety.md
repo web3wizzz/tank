@@ -9,7 +9,8 @@ hosted availability evidence or automatically move a production service to a cop
 ## Shared signing lane
 
 Both production Arc CLIs acquire a nonblocking exclusive filesystem lock **before
-opening custody**. `TANK_REGISTRATION_LOCK_PATH` selects the one stable absolute
+opening custody**. Rebuild/install both from the same verified release commit;
+older executables do not enforce these gates. `TANK_REGISTRATION_LOCK_PATH` selects the one stable absolute
 lock path; if omitted, the existing `TANK_DATABASE_PATH` plus
 `.registration.lock` is used. Deployment, registration, and restore must use the
 same path on the same host, service identity, and persistent filesystem. The
