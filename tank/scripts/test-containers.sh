@@ -22,12 +22,22 @@ cleanup() {
     "${compose[@]}" logs --no-color --tail 40 local-chain registration-worker || true
   fi
   # The generated project name exclusively owns these ephemeral CI volumes.
+  docker rm -f "${project}-runtime-inventory" >/dev/null 2>&1 || true
   "${compose[@]}" down --volumes --timeout 30 >/dev/null 2>&1 || true
   rm -rf "$fixture"
 }
 trap cleanup EXIT
 "${compose[@]}" config --quiet
 "${compose[@]}" build coordinator frontend local-chain
+docker run --rm --name "${project}-runtime-inventory" --network none --read-only \
+  --cap-drop ALL --security-opt no-new-privileges tank-local-frontend node -e '
+    const fs = require("node:fs");
+    for (const path of ["/usr/local/lib/node_modules/npm", "/usr/local/lib/node_modules/corepack", "/usr/local/bin/npm", "/usr/local/bin/npx", "/usr/local/bin/corepack"]) {
+      if (fs.existsSync(path)) throw new Error("Unnecessary package manager remains in runtime image");
+    }
+    console.log("PASS: final frontend runtime image excludes inherited package managers.");
+  '
+
 "${compose[@]}" up -d --wait --wait-timeout 180
 for user in a b; do
   "${compose[@]}" exec -T coordinator tank-access create --db /data/tank.sqlite \

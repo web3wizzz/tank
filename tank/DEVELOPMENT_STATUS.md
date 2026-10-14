@@ -29,6 +29,18 @@
   deletion, budget reset, mainnet change or paid infrastructure was introduced.
   This checkpoint is implementation/review evidence, not an independent audit.
 
+### Review repair: final runtime image boundary — 2026-10-14
+
+- Removed inherited npm/npx/corepack from the frontend runtime stage; the generated
+  standalone server requires Node only. Container CI probes the final image under
+  a read-only/no-network/no-capability fixture before functional acceptance, and
+  cleans up only its uniquely named CI-owned probe container.
+- Application artifact inventory and full image package-manager checks have
+  different scopes. Neither is a complete OS vulnerability scan. The unresolved
+  development braces advisory stays reported; no finding is suppressed.
+- Final public registration guard is race-tested before custody; all previously
+  verified browser/container acceptance stays required on this checkpoint.
+
 ### Review repair: launcher fencing and container diagnostics — 2026-10-14
 
 - A fresh local launcher now makes its demo directory private and waits under a

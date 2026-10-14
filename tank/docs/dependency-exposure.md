@@ -22,7 +22,7 @@ dependency override that merely relabels this issue as fixed.
 | Developer/build environment | All five package entries remain installed and reported. Linting/building untrusted repository changes remains an exposure boundary; never put deployment custody or production credentials in this environment. |
 | Production dependency graph | `npm audit --omit=dev --json` reports zero findings for the current frontend lockfile. This alone does not prove which files an image contains. |
 | Previous container packaging | The runtime copied the complete build workspace, including developer dependencies. Thus development-only classification was insufficient to exclude them from the image. |
-| Updated container packaging | Next standalone output tracing selects runtime files. The runtime copies only that artifact, public assets, and generated static assets, and executes its generated server. A build-time inventory rejects the lint chain and unnecessary TypeScript, Playwright, and Tailwind tooling in the actual artifact. |
+| Updated container packaging | Next standalone output tracing selects runtime files. The runtime copies only that artifact, public assets, and generated static assets, removes inherited npm/npx/corepack package managers, and executes its generated server. A build-time inventory rejects the lint chain and unnecessary TypeScript, Playwright, and Tailwind tooling in the actual artifact. |
 | Application request handling | Source review found no direct import of braces/micromatch/fast-glob in Tank's API/browser application source. This is limited reachability evidence, not proof about every transitive or compiled code path. |
 
 No audit findings are suppressed. Recheck full and production-only reports when
@@ -46,3 +46,8 @@ The full audit currently exits nonzero because the tooling advisory is unresolve
 Do not use `npm audit fix --force`. The standalone artifact inventory fails the
 container build if excluded package files reappear, including nested dependencies
 or symlinks escaping the runtime artifact.
+
+The artifact inventory covers application packages, not all operating-system
+libraries in the pinned base. Container CI additionally inspects the final image
+for removal of inherited package managers before exercising the server. This is
+not a full operating-system vulnerability scan or an independent audit.
