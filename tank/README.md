@@ -52,6 +52,9 @@ The output file must not already exist.
 
 ## Verification
 
+For the packaged local workspace, see [Docker/Compose instructions](docs/local-containers.md).
+This uses isolated persistent volumes and does not enable Arc signing.
+
     go test -race ./...
     go vet ./...
     go build ./...

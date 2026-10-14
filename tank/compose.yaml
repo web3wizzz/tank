@@ -1,0 +1,109 @@
+# Local-only simulation: all services share the coordinator's network namespace.
+# This preserves the clients' loopback HTTP restriction. No signer or RPC is wired.
+x-runtime: &runtime
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp:mode=1777]
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+
+x-node: &node
+  <<: *runtime
+  image: tank-local-go
+  build: {context: ., dockerfile: deploy/container/Dockerfile.go}
+  command: [tank-node]
+  network_mode: service:coordinator
+
+services:
+  coordinator:
+    <<: *runtime
+    image: tank-local-go
+    build: {context: ., dockerfile: deploy/container/Dockerfile.go}
+    ports: ["127.0.0.1:${TANK_CONTAINER_PORT:-3330}:3000"]
+    environment:
+      TANK_COORDINATOR_ADDR: 127.0.0.1:8080
+      TANK_DATABASE_PATH: /data/tank.sqlite
+      TANK_NODES: http://127.0.0.1:9101,http://127.0.0.1:9102,http://127.0.0.1:9103,http://127.0.0.1:9104
+      TANK_NODE_TOKEN: ${TANK_CONTAINER_NODE_TOKEN:?Generate a private local environment file first}
+      TANK_API_TOKEN: ${TANK_CONTAINER_ADMIN_TOKEN:?Generate a private local environment file first}
+      TANK_MAX_FILE_BYTES: "16777216"
+      TANK_MAX_SEGMENT_BYTES: "4194304"
+      TANK_USER_STORAGE_BYTES: "1073741824"
+      TANK_TOTAL_STORAGE_BYTES: "10737418240"
+      TANK_REGISTRATION_MODE: local
+    volumes: [metadata:/data]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  node1:
+    <<: *node
+    environment: &node-environment
+      TANK_NODE_ADDR: 127.0.0.1:9101
+      TANK_NODE_DATA_DIR: /data/shards
+      TANK_NODE_TOKEN: ${TANK_CONTAINER_NODE_TOKEN:?Generate a private local environment file first}
+      TANK_NODE_STORAGE_BYTES: "10737418240"
+    volumes: [node1:/data]
+    healthcheck: &node-health
+      test: [CMD-SHELL, 'wget -q -O /dev/null "http://$$TANK_NODE_ADDR/health"']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  node2:
+    <<: *node
+    environment: {<<: *node-environment, TANK_NODE_ADDR: "127.0.0.1:9102"}
+    volumes: [node2:/data]
+    healthcheck: *node-health
+  node3:
+    <<: *node
+    environment: {<<: *node-environment, TANK_NODE_ADDR: "127.0.0.1:9103"}
+    volumes: [node3:/data]
+    healthcheck: *node-health
+  spare:
+    <<: *node
+    environment: {<<: *node-environment, TANK_NODE_ADDR: "127.0.0.1:9104"}
+    volumes: [spare:/data]
+    healthcheck: *node-health
+
+  frontend:
+    <<: *runtime
+    image: tank-local-frontend
+    build:
+      context: .
+      dockerfile: deploy/container/Dockerfile.frontend
+      args:
+        TANK_SITE_URL: http://localhost:${TANK_CONTAINER_PORT:-3330}
+    network_mode: service:coordinator
+    depends_on:
+      node1: {condition: service_healthy}
+      node2: {condition: service_healthy}
+      node3: {condition: service_healthy}
+      spare: {condition: service_healthy}
+    environment:
+      TANK_FRONTEND_ORIGIN: http://localhost:${TANK_CONTAINER_PORT:-3330}
+      TANK_SITE_URL: http://localhost:${TANK_CONTAINER_PORT:-3330}
+      TANK_ALLOW_INDEXING: "false"
+      TANK_API_URL: http://127.0.0.1:8080
+      TANK_SESSION_SECRET: ${TANK_CONTAINER_SESSION_SECRET:?Generate a private local environment file first}
+      TANK_MAX_FILE_BYTES: "16777216"
+    tmpfs: ["/tmp:mode=1777", "/app/frontend/.next/cache:uid=1000,gid=1000,mode=0700"]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  metadata:
+  node1:
+  node2:
+  node3:
+  spare:

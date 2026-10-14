@@ -159,6 +159,10 @@ See the [browser encryption guide](tank/docs/browser-encryption.md) and
 
 ### Phase 2 pilot preparation
 
+[Local Docker/Compose packaging](tank/docs/local-containers.md) runs the existing
+encrypted workspace with isolated persistent volumes. It is a single-machine
+fixture and includes no Arc signing service.
+
 [Independent-host handoff and owner checklist](tank/docs/independent-host-pilot-handoff.md),
 [separate-machine templates and operations](tank/docs/pilot-operations.md),
 [private backup/restore](tank/docs/backup-restore.md),

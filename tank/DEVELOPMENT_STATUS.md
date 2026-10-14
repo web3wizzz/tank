@@ -22,6 +22,43 @@ increases remain unauthorized. Preserve the deployed registry, signer, journals,
 confirmed jobs, and private data. The frontend implementation used the previously
 user-approved `gpt-5.6-sol` agent because exact `gpt-5` is not selectable here.
 
+### Focused local container packaging — 2026-10-14
+
+No pre-existing Docker/Compose files were found. Added digest-pinned multi-stage
+Go and Next.js Dockerfiles, a default-deny build context, and local Compose for
+frontend/coordinator plus three active node containers and one spare. Only the
+frontend is published on host loopback; a shared network namespace retains the
+existing loopback-HTTP node-client restriction. Named volumes preserve fixture
+metadata/shards. Non-root users, read-only roots, dropped capabilities, health
+checks, graceful stops and log rotation are configured. No signer, RPC, real pilot
+state, deployment journals or Arc broadcasting are included.
+
+[Local container guide](docs/local-containers.md) gives exact private-environment,
+build/start, credential creation, encrypted smoke and data-preserving stop commands.
+This remains a single-machine fixture, not independent-host pilot evidence.
+
+Validation checkpoint: Compose schema and semantic checks pass (six services,
+loopback publication, named volumes, hardening, no chain/custody inputs). Exported
+BuildKit context contains only 109 tracked source/build inputs. That check caught
+and excluded stale source backups, generated SDK output and a Git-ignored
+`next-env.d.ts` copy dependency before final builds. Both final images built:
+Go `sha256:3ca312ccb139e404aba8b8703c2e07eb87e5b2d270f70d765f8a5be91f53fc66`,
+frontend `sha256:d5e907765956daa012343d242ecd452ab454a6d5ac78827a0c22e9b902cdf636`.
+All six services became healthy. One direct-URL browser smoke passed: authenticated
+workspace/origin checks, ciphertext envelope/hash, exact decrypted PDF bytes and
+Unicode filename, recovery-key import, cross-user retrieval/registration denial
+and sign-out. Registration is local `not_queued`, with no chain worker/proof.
+Runtime startup exposed and fixed a YAML cache-mount quoting error; no data reset
+was used. The isolated `tank-packaging-check` project was stopped with volumes
+and private fixture credentials preserved. Container-guide links and all three
+bash fences pass syntax validation. Publication/CI evidence is attached to this
+milestone's Git commit and Actions runs; existing suites were not manually rerun.
+An npm installation audit reported five high-severity findings in the existing
+locked dependency tree; impact is untriaged and no forced dependency update was
+made in this packaging scope. Automated container CI and hosted TLS/per-node
+credential/signing/restore integration remain separate work. Preserve the existing
+registry/account/budgets and do not infer hosted acceptance from local containers.
+
 ### Independent-host handoff — 2026-10-14
 
 [Operator handoff](docs/independent-host-pilot-handoff.md) now records the completed
