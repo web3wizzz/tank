@@ -1,5 +1,24 @@
 # Tank Phase 1 development status
 
+### Review repair: recovery boundary and coordinator startup — 2026-10-14
+
+- Two new loss-boundary regressions preserve stopped/gated custody after loss of
+  newest authority and interrupted recovery. Matching chain nonce never proves
+  complete authority. Pilot startup now uses existing initialized SQLite only;
+  missing paths and schema zero cannot silently bootstrap. Actual revocations
+  survive reopen tests. A valid stale database remains undetectable by this guard.
+- [Recovery design](docs/disaster-recovery-design.md) specifies an independent
+  durable acknowledgement barrier, signed intents/journals, budget reservations,
+  credential revocations and custody fencing. No independent backup authority or
+  zero-loss guarantee is implemented. Asynchronous snapshots remain insufficient
+  after newest-state loss, and signing remains blocked in that case.
+- [Coordinator availability](docs/coordinator-availability.md) specifies manual
+  promotion gates and future consensus/fencing. No automatic failover is claimed.
+  Actual host selection, access, operational TLS, monitoring, off-machine backups
+  and independent capacity measurements remain hosted acceptance gates.
+- Evidence: full Go race suite, two Python loss-boundary tests and new existing-DB
+  startup/revocation tests pass. No deployed contract, fee budget or journal reset.
+
 ### Review repair: production runtime dependency isolation — 2026-10-14
 
 - Reproduced five high frontend npm entries tracing to one unresolved braces
@@ -14,9 +33,10 @@
   build and 70-package inventory pass, as do frontend tests and lint.
 - Browser CI now exercises the generated standalone server and checks its
   inventory, rather than merely validating an unrelated full-workspace server.
-  Local browser installation is currently blocked by a truncated Chromium
-  download. Docker is unavailable in this review environment; image and browser
-  acceptance must be confirmed by CI before this milestone is called verified.
+  All four GitHub workflows passed for commit 79618c3, including standalone
+  browser acceptance. Docker is unavailable locally; image acceptance is
+  delegated to the new disposable Containers workflow. Local browser download
+  remains blocked by a truncated archive.
 - Remaining repair order: newest-authoritative-state disaster recovery,
   healthy-node new-upload placement, container registration/CI, opt-in SDK/CLI
   encryption, coordinator recovery, and independent hosted acceptance. Preserve

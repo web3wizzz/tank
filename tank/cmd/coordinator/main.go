@@ -39,7 +39,11 @@ func run() error {
 		return err
 	}
 
-	store, err := metadata.Open(context.Background(), cfg.DatabasePath)
+	openStore := metadata.Open
+	if cfg.RequireExistingDatabase {
+		openStore = metadata.OpenExisting
+	}
+	store, err := openStore(context.Background(), cfg.DatabasePath)
 	if err != nil {
 		return err
 	}
