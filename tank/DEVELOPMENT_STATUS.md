@@ -1,5 +1,23 @@
 # Tank Phase 1 development status
 
+### Review repair: opt-in CLI/SDK encryption — 2026-10-14
+
+- Added Go and TypeScript helpers for the browser v1 AES-256-GCM envelope,
+  authenticated filename metadata and bounded recovery JSON import/export.
+  Raw APIs remain unchanged; ciphertext IDs still hash the complete stored bytes.
+  [Encryption guide](docs/sdk-encryption.md) states which interfaces encrypt.
+- CLI encrypted upload persists private no-overwrite recovery JSON before any
+  request, retaining it after uncertain failures. Recovery retrieval checks the
+  ciphertext ID, authenticates and creates private no-overwrite plaintext output.
+- Full Go race suite, vet and builds pass; TypeScript check and 23 tests pass.
+  Actual browser-source/Go/TypeScript interoperability tests cover both directions,
+  binary content and Unicode filenames. CLI tests prove pre-upload key persistence,
+  exact retrieval, tamper rejection and no-overwrite behavior. Node is required
+  for the interoperability gate; Go-only runs explicitly skip that gate.
+- Encryption does not supply missing authorization/manifests or recover lost keys.
+  Caller-owned plaintext and immutable key strings cannot be reliably zeroed.
+  Independent key custody and authoritative host-loss recovery remain separate.
+
 ### Review repair: isolated container registration and CI — 2026-10-14
 
 - Added an explicit opt-in Compose overlay with a loopback-only chain 31337,
