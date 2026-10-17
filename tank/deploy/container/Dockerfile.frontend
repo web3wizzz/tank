@@ -17,11 +17,20 @@ ARG TANK_SITE_URL=http://localhost:3330
 ENV TANK_SITE_URL=${TANK_SITE_URL} TANK_ALLOW_INDEXING=false
 RUN npm run build
 
+# Prune only after compiling; the linked SDK needs its own prune as npm does
+# not prune development dependencies inside a linked package.
+RUN npm prune --omit=dev --ignore-scripts \
+    && cd /app/sdk-ts && npm prune --omit=dev --ignore-scripts
+
 FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app/frontend
-COPY --from=build /app/sdk-ts/ /app/sdk-ts/
-COPY --from=build /app/frontend/ ./
+COPY --from=build /app/sdk-ts/package.json /app/sdk-ts/package.json
+COPY --from=build /app/sdk-ts/dist/ /app/sdk-ts/dist/
+COPY --from=build /app/frontend/package.json /app/frontend/package-lock.json ./
+COPY --from=build /app/frontend/node_modules/ node_modules/
+COPY --from=build /app/frontend/.next/ .next/
+COPY --from=build /app/frontend/public/ public/
 RUN mkdir -p .next/cache && chown -R node:node .next/cache
 USER node
 EXPOSE 3000
