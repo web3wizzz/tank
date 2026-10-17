@@ -23,6 +23,16 @@ type Store struct {
 }
 
 func Open(ctx context.Context, path string) (*Store, error) {
+	return openDatabase(ctx, path, false)
+}
+
+// OpenExisting refuses to bootstrap a missing or uninitialized authority database.
+// It does not prove that an existing database is the newest authoritative state.
+func OpenExisting(ctx context.Context, path string) (*Store, error) {
+	return openDatabase(ctx, path, true)
+}
+
+func openDatabase(ctx context.Context, path string, existing bool) (*Store, error) {
 	if path == "" {
 		return nil, fmt.Errorf("database path is required")
 	}
@@ -32,11 +42,17 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(absolute), 0700); err != nil {
-		return nil, err
+	if !existing {
+		if err := os.MkdirAll(filepath.Dir(absolute), 0700); err != nil {
+			return nil, err
+		}
 	}
 
-	db, err := sql.Open("sqlite", (&url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}).String())
+	location := &url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}
+	if existing {
+		location.RawQuery = "mode=rw"
+	}
+	db, err := sql.Open("sqlite", location.String())
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +68,16 @@ func Open(ctx context.Context, path string) (*Store, error) {
 
 	if err := db.PingContext(ctx); err != nil {
 		return fail(err)
+	}
+
+	if existing {
+		var version int
+		if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+			return fail(err)
+		}
+		if version == 0 {
+			return fail(fmt.Errorf("existing database is uninitialized; refusing authority bootstrap"))
+		}
 	}
 
 	for _, statement := range []string{

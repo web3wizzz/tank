@@ -252,9 +252,21 @@ class RestoreTests(unittest.TestCase):
         validator = Path(self.config["validator"])
         validator.write_text("#!/usr/bin/env python3\nimport time\ntime.sleep(10)\n")
         self.config["validator_sha256"] = restore.digest(validator)
-        self.config["timeout_seconds"] = 1
-        with self.assertRaises(subprocess.TimeoutExpired):
-            self.execute()
+        # Keep the setup deadline separate from the validator fault: on a busy
+        # runner a one-second whole-operation limit can expire while copying,
+        # without ever exercising subprocess timeout/cleanup.
+        real_run = restore.subprocess.run
+
+        def bounded_validator(*args, **kwargs):
+            self.assertGreater(kwargs["timeout"], 0)
+            self.assertLessEqual(kwargs["timeout"], self.config["timeout_seconds"])
+            kwargs["timeout"] = min(kwargs["timeout"], 0.05)
+            return real_run(*args, **kwargs)
+
+        with mock.patch.object(restore.subprocess, "run", side_effect=bounded_validator) as invoked:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                self.execute()
+        invoked.assert_called_once()
         self.assertTrue(self.gate().exists())
 
     def test_existing_candidate_never_overwritten(self):

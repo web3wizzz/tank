@@ -22,10 +22,26 @@ frontend/**
 !frontend/next.config.ts
 !frontend/tsconfig.json
 !frontend/postcss.config.mjs
+!frontend/scripts/
+frontend/scripts/**
+!frontend/scripts/check-runtime.mjs
 !frontend/src/
 !frontend/src/**
 !frontend/public/
 !frontend/public/**
+!scripts/
+scripts/**
+!scripts/install-arc-foundry.sh
+!deploy/
+deploy/**
+!deploy/container/
+deploy/container/**
+!deploy/container/run-local-chain.sh
+!contracts/
+contracts/**
+!contracts/foundry.toml
+!contracts/src/
+!contracts/src/**
 # Defense in depth even inside allowed source directories.
 **/.env*
 **/node_modules
@@ -47,3 +63,5 @@ frontend/**
 **/secrets
 **/data
 **/*_test.go
+
+**/*.recovery.json

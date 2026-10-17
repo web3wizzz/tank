@@ -29,6 +29,7 @@ type Service struct {
 	governor       *limits.Governor
 	store          *metadata.Store
 	nodes          []*node.Client
+	placementNodes []*node.Client
 	byURL          map[string]*node.Client
 	segmentSize    int
 }
@@ -66,10 +67,11 @@ func NewServiceWithLimits(store *metadata.Store, nodes []*node.Client, segmentSi
 
 	return &Service{
 		resourceLimits: bounds, governor: governor,
-		store:       store,
-		nodes:       append([]*node.Client(nil), nodes[:3]...),
-		byURL:       byURL,
-		segmentSize: segmentSize,
+		store:          store,
+		nodes:          append([]*node.Client(nil), nodes[:3]...),
+		placementNodes: append([]*node.Client(nil), nodes...),
+		byURL:          byURL,
+		segmentSize:    segmentSize,
 	}, nil
 }
 
@@ -87,6 +89,13 @@ func (s *Service) Tank(ctx context.Context, data []byte) (metadata.Manifest, err
 		return existing, nil
 	}
 	if !errors.Is(err, metadata.ErrNotFound) {
+		return empty, err
+	}
+
+	// Capacity observations are advisory. Each node still enforces its own
+	// atomic limits when accepting shards; no manifest is published on failure.
+	candidates, err := s.uploadCandidates(ctx, len(data))
+	if err != nil {
 		return empty, err
 	}
 
@@ -122,23 +131,8 @@ func (s *Service) Tank(ctx context.Context, data []byte) (metadata.Manifest, err
 			Shards:     make([]metadata.Shard, len(shards)),
 		}
 
-		for index, shard := range shards {
-			client := s.nodes[index%len(s.nodes)]
-			hash := integrity.Digest(shard)
-			key := storage.ShardKey{
-				FileID: id, Segment: segment.Index, Index: index,
-			}
-
-			if err := client.Put(ctx, key, shard, hash); err != nil {
-				return empty, fmt.Errorf(
-					"store segment %d shard %d: %w",
-					segment.Index, index, err,
-				)
-			}
-
-			segment.Shards[index] = metadata.Shard{
-				Index: index, Hash: hash.String(), NodeURL: client.BaseURL,
-			}
+		if err := placeUploadSegment(ctx, id, &segment, shards, candidates); err != nil {
+			return empty, err
 		}
 
 		m.Segments = append(m.Segments, segment)

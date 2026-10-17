@@ -16,3 +16,7 @@ export type {
   RegistrationState,
   Registration,
 } from "./types.js";
+
+export { encryptFile, decryptFile, parseRecovery, exportRecovery, isEncrypted,
+  fileHash, MAX_PLAIN_BYTES } from "./encryption.js";
+export type { Recovery } from "./encryption.js";
