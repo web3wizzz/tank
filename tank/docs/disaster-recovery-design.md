@@ -5,6 +5,11 @@ backup service, authority journal, remote signer or restore activation is
 implemented by this document. Current signing remains one host/one account.
 Loss of the newest live comparison baseline blocks the existing restore controller.
 
+The [replicated checkpoint tool](signing-state-recovery.md) now copies one consistent
+snapshot to explicit private destinations and verifies identical byte digests.
+This is useful backup transport onto operator-provisioned mounts; it does not
+implement the independent acknowledgement authority or activation protocol below.
+
 ## The gap and required recovery objective
 
 `internal/metadata/backup.go` publishes a private, integrity-checked, consistent

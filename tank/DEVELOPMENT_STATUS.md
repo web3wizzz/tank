@@ -1,5 +1,32 @@
 # Tank Phase 1 development status
 
+### Replicated metadata checkpoints — 2026-10-17
+
+`tank-backup` now supports repeated explicit `--replica` destinations and a
+read-only `--verify` mode with optional separately pinned SHA-256. It takes one
+WAL-consistent snapshot, copies identical bytes to new private bundles, flushes
+files/directories and verifies each completed copy. Existing/aliased paths are
+refused; partial failures retain surviving output and report the completed count.
+The original single-snapshot interface remains supported. No signing/controller
+gate, original journal or fee budget changed.
+
+Full metadata/backup package tests and focused race checks pass. Synthetic primary
+loss preserves revoked credential denial, exact signed bytes/hash, permanent
+reservation/budget totals and user isolation in both copies. Corruption, incomplete
+bundles, wrong pinned generation, aliases, overwrite and cancellation are rejected.
+Existing lost-newest-authority regressions pass. See
+[checkpoint usage and limitations](docs/signing-state-recovery.md).
+
+These local tests verify recoverable snapshot bytes, not independent-host storage.
+Operators must supply and validate independent off-machine mounts, encryption and
+custody. Snapshots can miss later acknowledged mutations; a pinned digest cannot
+prove no newer generation exists. Newest-authority loss therefore remains
+fail-closed. Complete signed intents/bytes, permanent budget history, revocations,
+access/manifests/jobs, deployment and controller journals, an authenticated current
+tip and enforceable old-writer/custody fencing remain required for activation.
+The synchronous authority design remains unimplemented; no automatic failover or
+safe signing recovery from an older copy is claimed.
+
 ### Review work integration — 2026-10-17
 
 Reused the focused commits on `codex/tank-review-fixes` through `a9b7a07`
