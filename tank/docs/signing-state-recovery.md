@@ -77,7 +77,11 @@ worker directly on the backup copy.
 ## Lost newest database: signing stays blocked
 
 These checkpoints preserve signed bytes, permanent reservations and revocations
-that committed before their snapshot. Later acknowledged changes can still be
+still present when the snapshot is taken. The current account lane holds only its
+latest transaction's raw bytes; older jobs and spend records retain hashes/costs,
+not a lifetime signed-byte archive. Preserve all surviving original journals and
+backups. See the [mutation/history inventory](authority-mutation-map.md).
+Later acknowledged changes can still be
 missing. Loss of the newest live comparison baseline continues to block the
 existing restore controller, even if a checkpoint passes byte verification and
 chain nonce appears unchanged. Never remove gates or resume signing from such a

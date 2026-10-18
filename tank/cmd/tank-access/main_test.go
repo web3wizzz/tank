@@ -132,3 +132,69 @@ func TestCredentialSaveRefusesExistingFilesAndFailedIssuancePreservesKeys(t *tes
 		t.Fatal("failed issuance changed existing credentials")
 	}
 }
+
+func TestExistingAuthorityCommandsDoNotBootstrapMissingDatabase(t *testing.T) {
+	for _, command := range []string{"users", "keys", "issue", "revoke"} {
+		t.Run(command, func(t *testing.T) {
+			dir := t.TempDir()
+			database := filepath.Join(dir, "missing", "tank.sqlite")
+			output := filepath.Join(dir, "credential.json")
+			args := []string{command, "--db", database}
+			switch command {
+			case "keys":
+				args = append(args, "--user-id", "synthetic-user")
+			case "issue":
+				args = append(args, "--user-id", "synthetic-user", "--out", output)
+			case "revoke":
+				args = append(args, "--key-id", "synthetic-key")
+			}
+			var printed bytes.Buffer
+			if err := runWithOutput(args, &printed); err == nil {
+				t.Fatal("missing authority accepted")
+			}
+			if printed.Len() != 0 {
+				t.Fatal("missing authority printed success/list output")
+			}
+			if _, err := os.Lstat(filepath.Dir(database)); !os.IsNotExist(err) {
+				t.Fatal("administrative command created database parent")
+			}
+			if _, err := os.Lstat(output); !os.IsNotExist(err) {
+				t.Fatal("missing authority created credential output")
+			}
+		})
+	}
+}
+
+func TestExistingAuthorityCommandsPreserveUninitializedDatabase(t *testing.T) {
+	for _, command := range []string{"users", "keys", "issue", "revoke"} {
+		t.Run(command, func(t *testing.T) {
+			dir := t.TempDir()
+			database := filepath.Join(dir, "empty.sqlite")
+			output := filepath.Join(dir, "credential.json")
+			if err := os.WriteFile(database, nil, 0600); err != nil {
+				t.Fatal(err)
+			}
+			args := []string{command, "--db", database}
+			switch command {
+			case "keys":
+				args = append(args, "--user-id", "synthetic-user")
+			case "issue":
+				args = append(args, "--user-id", "synthetic-user", "--out", output)
+			case "revoke":
+				args = append(args, "--key-id", "synthetic-key")
+			}
+			var printed bytes.Buffer
+			if err := runWithOutput(args, &printed); err == nil || printed.Len() != 0 {
+				t.Fatal("schema-zero authority accepted")
+			}
+			body, err := os.ReadFile(database)
+			if err != nil || len(body) != 0 {
+				t.Fatal("schema-zero authority was initialized", err)
+			}
+			entries, err := os.ReadDir(dir)
+			if err != nil || len(entries) != 1 {
+				t.Fatal("refused authority created sidecars/credentials", err)
+			}
+		})
+	}
+}

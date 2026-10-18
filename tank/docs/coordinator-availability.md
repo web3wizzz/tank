@@ -45,6 +45,13 @@ rejects missing/schema-zero state instead of silently bootstrapping an empty
 volume. Provision initial authority explicitly with `tank-access create`.
 Local development retains the bootstrap `metadata.Open` default.
 
+Administrative `tank-access users`, `keys`, `issue` and `revoke` also require an
+existing initialized journal. Missing/schema-zero paths fail without creating a
+replacement database or credential output. Explicit `tank-access create` retains
+initial bootstrap; never use it to replace lost authority during an incident.
+These checks cannot detect an initialized stale database or a wrong initialized
+volume; the newest-tip and fencing requirements still apply.
+
 Both writable APIs now refuse `DATABASE_PATH.restore-gate` before creation or
 migration, including markers reached through database symlink chains, and refuse
 hard-linked/nonregular database files. New replicated checkpoints are marked

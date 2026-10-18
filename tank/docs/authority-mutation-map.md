@@ -124,6 +124,11 @@ nonce after confirmation replaces that row's previous raw bytes. Older
 registration jobs retain hashes and the spend ledger retains permanent costs,
 but those tables do not contain the full older signed transactions. A snapshot
 therefore captures all bytes still stored, not an immutable lifetime archive.
+The current read-only reconciliation checker fetches confirmed transaction bytes
+for each retained job hash and checks canonical observations, contiguous nonces
+and exact signed-cost reservations against the surviving baseline. That is useful
+confirmation evidence, not proof that a lost baseline omitted no later intent,
+revocation or reservation.
 Migration must inventory and preserve every surviving original journal/backup and
 establish complete historical transaction evidence; never fabricate missing bytes
 from hashes or claim an old snapshot is authoritative merely because it validates.

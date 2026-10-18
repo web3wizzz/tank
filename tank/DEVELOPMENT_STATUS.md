@@ -1,5 +1,48 @@
 # Tank Phase 1 development status
 
+### Administrative existing-authority guard — 2026-10-18
+
+Reproduced silent database initialization by `tank-access users`, `keys`, `issue`
+and `revoke` when their configured journal was missing. These commands now use
+`OpenExisting`; only explicit `create` retains bootstrap. Regression checks cover
+all four commands refusing absent/schema-zero authority without creating a parent,
+migrating empty bytes, producing sidecars/credentials or printing success/list data.
+Existing credential replacement/list/revoke and secret-output checks remain intact.
+Access/metadata race suites, vet and command builds pass. Scoped review found no
+blocking defect; publication CI is checked after push.
+This guard does not authenticate an initialized stale/wrong volume or permit
+lost-authority recovery; original signing and restore gates remain unchanged.
+
+### Recovery mutation inventory and publication checkpoint — 2026-10-18
+
+Reused the already-published `4d5619b` documentation follow-up. Source review maps
+all eleven schema-8 tables and 22 public metadata mutators, including two writes
+through `UPDATE … RETURNING`, administrator/maintenance paths, transaction groups,
+random IDs and lease-clock dependencies. It specifies deterministic replay and
+bootstrap gates without touching private data or changing schemas/runtime routing.
+
+The map explicitly records that signing currently precedes local prepared-byte
+persistence and budget reservation precedes broadcast, while the proposed durable
+intent/custody protocol remains absent. The account lane stores only latest raw
+bytes; older jobs/permanent reservations retain hashes/costs. Current reconciliation
+can validate fetched confirmed bytes against retained job hashes and the frozen
+newest baseline, but cannot discover omitted later intents/revocations after loss.
+Scoped source review found no corrections to table/method counts or these boundaries.
+All original state, budgets, deployment and activation gates remain unchanged.
+
+All five workflows passed for `4d5619b`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39086145599),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39086145596),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39086145600),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39086145598), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39086145595).
+Next recovery implementation is semantic commands/complete-state bootstrap and
+atomic applied-sequence replay, then custody intent/byte persistence and fencing.
+Do not partially route live writers or activate a copy before full coverage and
+independent authenticated current-tip proof. Backend host/custody selection and
+real off-machine durability/host-loss acceptance still need operator inputs.
+See [coverage and migration plan](docs/authority-mutation-map.md).
+
 ### CLI input boundaries — 2026-10-18
 
 Reproduced indefinite FIFO-open hangs in raw/encrypted uploads and recovery-key
@@ -22,6 +65,13 @@ the Go SDK's existing 8 MiB full-body bound and exactly-one-value rule, acceptin
 ordinary trailing whitespace. CLI parser and real HTTP upload regressions first
 failed on the old decoder and now pass. The CLI race suite, vet and command builds
 pass with both boundary fixes; no valid raw-byte API or file-ID semantics changed.
+
+All five workflows passed for `da61cab`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39085861266),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39085861269),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39085861238),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39085861249), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39085861206).
 
 ### Fail-closed node capacity decoding — 2026-10-18
 

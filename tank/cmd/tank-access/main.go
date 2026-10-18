@@ -148,7 +148,13 @@ func runWithOutput(args []string, out io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	store, err := metadata.Open(ctx, *database)
+	// Only explicit user creation bootstraps authority. Listing, replacement and
+	// revocation must never turn a missing/wrong volume into a fresh empty journal.
+	open := metadata.OpenExisting
+	if args[0] == "create" {
+		open = metadata.Open
+	}
+	store, err := open(ctx, *database)
 	if err != nil {
 		return err
 	}
