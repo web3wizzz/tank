@@ -40,22 +40,21 @@ needed for end-to-end evidence. Public liveness must not authorize failover.
 | Stale backup offered while live baseline survives | Restore refuses logical mismatch, including revocations and spend | Local controller/validator evidence; candidates remain gated |
 | Newest baseline lost after interrupted restore | Resume cannot establish unchanged live lane; candidate remains inactive | New regression with injected process controls; no independent durability proof |
 
-An additional startup hazard is explicit in `internal/metadata/sqlite.go`:
-`metadata.Open` creates the parent directory/database and runs migrations. It is
-appropriate for first-time initialization but normal coordinator startup uses the
-same function. If its configured volume/path silently becomes an empty directory,
-a process restart can create a new empty database and return healthy liveness.
-The restore controller uses SQLite `mode=rw` and rejects an absent source; this
-does not protect ordinary service startup. Hosted startup needs an explicit
-initialized-volume/database identity check and separate authorized bootstrap
-path, enforced before serving requests or opening custody. The pilot environment template now enables `TANK_REQUIRE_EXISTING_DATABASE=true`.
-Coordinator startup uses SQLite `mode=rw`, rejects schema zero, and refuses to
-create a missing database or parent. Provision the initial database explicitly
-with `tank-access create` before starting the service. Regression tests cover
-missing and uninitialized state and preservation of actual credential revocations.
-Local bootstrap defaults remain unchanged. This guard does not detect a valid
-stale database or a wrong volume containing an initialized database; existence
-alone does not prove authoritative state.
+Pilot startup enables `TANK_REQUIRE_EXISTING_DATABASE=true`: SQLite `mode=rw`
+rejects missing/schema-zero state instead of silently bootstrapping an empty
+volume. Provision initial authority explicitly with `tank-access create`.
+Local development retains the bootstrap `metadata.Open` default.
+
+Both writable APIs now refuse `DATABASE_PATH.restore-gate` before creation or
+migration, including markers reached through database symlink chains, and refuse
+hard-linked/nonregular database files. New replicated checkpoints are marked
+inactive before their database bytes appear. A coordinator regression verifies
+rejection before listener/node setup; read-only reconciliation still works.
+See [checkpoint format and limits](signing-state-recovery.md). Gates do not fence
+already-open stores, authenticate the newest state, or detect arbitrary unmarked
+stale copies/wrong initialized volumes. Preserve the existing process quiescence,
+shared-lane controller and external-authority requirements. No guard permits
+starting a standby merely because its database exists or chain nonce matches.
 
 The four-node storage topology reduces a storage failure risk. It does not reduce
 the single-control-host availability risk. DNS/load balancing to another process

@@ -28,6 +28,16 @@ Concurrent writes continue to work; a snapshot represents a consistent point in
 time. The default deadline is two minutes; `--timeout` accepts 1s–1h.
 Do not copy only the live `.sqlite` file while its WAL is active.
 
+For replicated copies, use [checkpoint bundles](signing-state-recovery.md) with
+at least two explicit operator-provisioned destinations. One consistent snapshot
+is copied and verified identically; new version-2 bundles carry an inactive marker
+before database bytes are published. Writable service startup refuses marked
+copies. The raw `--out` format above remains compatible and unmarked; it is not an
+activation permit. Neither format establishes the newest acknowledged state.
+Operators must independently validate off-machine durability, custody, encryption
+and restore access. Two directories or a matching chain nonce cannot establish
+safe recovery after the newest authoritative database is lost.
+
 Snapshot consistency is not full-system point-in-time coordination: newly stored
 files after the snapshot may be absent from restored metadata. Preserve node
 shards and take metadata snapshots after successful uploads according to the

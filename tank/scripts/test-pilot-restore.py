@@ -348,10 +348,16 @@ class RestoreTests(unittest.TestCase):
 
     def test_killed_controller_recovers_its_durable_phase(self):
         marker = self.root / "validator-started"
+        release = self.root / "release-validator"
+        finished = self.root / "validator-finished"
+        self.addCleanup(release.touch)
         validator = Path(self.config["validator"])
         validator.write_text(
             "#!/usr/bin/env python3\nimport pathlib,time\n"
-            f"pathlib.Path({str(marker)!r}).write_text('fixture')\ntime.sleep(0.5)\n"
+            f"pathlib.Path({str(marker)!r}).write_text('fixture')\n"
+            "deadline=time.monotonic()+10\n"
+            f"while not pathlib.Path({str(release)!r}).exists() and time.monotonic()<deadline: time.sleep(0.01)\n"
+            f"pathlib.Path({str(finished)!r}).write_text('fixture')\n"
         )
         self.config["validator_sha256"] = restore.digest(validator)
         self.config_path.write_text(json.dumps(self.config))
@@ -366,7 +372,9 @@ class RestoreTests(unittest.TestCase):
             command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
         self.children.append(controller)
-        deadline = time.monotonic() + 3
+        # Observe the controller's whole deadline, rather than racing a shorter
+        # unrelated setup timer or a half-second validator sleep on a busy runner.
+        deadline = time.monotonic() + self.config["timeout_seconds"] + 1
         while not marker.exists():
             if controller.poll() is not None or time.monotonic() > deadline:
                 self.fail("Synthetic controller failed before reconciliation")
@@ -376,9 +384,11 @@ class RestoreTests(unittest.TestCase):
         self.assertTrue(self.gate().exists())
         candidate = Path(self.config["candidate_database"])
         inode = candidate.stat().st_ino
-        time.sleep(
-            0.6
-        )  # Let the bounded read-only fixture child exit after parent death.
+        release.touch()
+        deadline = time.monotonic() + 3
+        while not finished.exists():
+            self.assertLess(time.monotonic(), deadline, "Owned validator did not exit")
+            time.sleep(0.01)
         result = subprocess.run(
             command + ["--resume"],
             stdout=subprocess.DEVNULL,

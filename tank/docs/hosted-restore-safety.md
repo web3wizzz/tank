@@ -29,6 +29,14 @@ candidate regardless of its selected lock path. Never manually delete a gate to
 bypass failed reconciliation. Actual private databases, gates, controller journals,
 deployment journals, credentials, signed bytes and backups stay out of Git/logs.
 
+Writable metadata startup also rejects a database-adjacent marker, including
+through symlink aliases, and rejects hard-linked/nonregular database files.
+Version-2 [replicated checkpoints](signing-state-recovery.md) publish an inactive
+marker before snapshot bytes. Read-only verification remains available; this
+startup refusal does not replace freezing already-open writers, independent
+freshness proof or signer fencing. Unmarked raw snapshots remain unsafe to
+activate after newest-state loss. No command here removes a checkpoint's gate.
+
 ## Local controller
 
 The controller accepts only a private directory with an explicit

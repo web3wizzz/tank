@@ -10,8 +10,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
+
+const checkpointInactiveMarker = "{\"version\":2,\"inactive_checkpoint\":true}\n"
 
 // CheckpointManifest describes bytes, not freshness or authority to activate them.
 // Its digest detects damage; it does not authenticate an untrusted destination.
@@ -89,7 +92,7 @@ func CreateCheckpoints(ctx context.Context, source string, destinations []string
 	if err != nil {
 		return nil, err
 	}
-	manifest := CheckpointManifest{1, digest, size, time.Now().UTC().Format(time.RFC3339Nano)}
+	manifest := CheckpointManifest{2, digest, size, time.Now().UTC().Format(time.RFC3339Nano)}
 	body, err := json.Marshal(manifest)
 	if err != nil {
 		return nil, err
@@ -100,6 +103,16 @@ func CreateCheckpoints(ctx context.Context, source string, destinations []string
 		}
 		if err = os.Mkdir(path, 0700); err != nil {
 			return completed, fmt.Errorf("checkpoint publication incomplete: %w", err)
+		}
+		// Persist the inactive marker before a writable database path can appear.
+		if err = checkpointWrite(ctx, filepath.Join(path, "snapshot.sqlite.restore-gate"), []byte(checkpointInactiveMarker)); err != nil {
+			return completed, err
+		}
+		if err = checkpointSync(path); err != nil {
+			return completed, err
+		}
+		if err = checkpointSync(filepath.Dir(path)); err != nil {
+			return completed, err
 		}
 		// Never remove this directory on failure: it may contain the only surviving copy.
 		if err = checkpointCopy(ctx, snapshot, filepath.Join(path, "snapshot.sqlite")); err != nil {
@@ -208,11 +221,16 @@ func VerifyCheckpoint(ctx context.Context, path, expectedDigest string) (Checkpo
 	if err = ctx.Err(); err != nil {
 		return manifest, err
 	}
-	if json.Unmarshal(body, &manifest) != nil || manifest.Version != 1 || manifest.Size <= 0 || len(manifest.SHA256) != 64 {
+	if json.Unmarshal(body, &manifest) != nil || (manifest.Version != 1 && manifest.Version != 2) || manifest.Size <= 0 || len(manifest.SHA256) != 64 {
 		return manifest, errors.New("checkpoint manifest invalid")
 	}
 	if _, err = time.Parse(time.RFC3339Nano, manifest.CreatedUTC); err != nil {
 		return manifest, errors.New("checkpoint timestamp invalid")
+	}
+	if manifest.Version == 2 {
+		if err := verifyCheckpointGate(ctx, filepath.Join(absolute, "snapshot.sqlite.restore-gate")); err != nil {
+			return manifest, err
+		}
 	}
 	digest, size, err := checkpointDigest(ctx, filepath.Join(absolute, "snapshot.sqlite"))
 	if err != nil {
@@ -222,4 +240,35 @@ func VerifyCheckpoint(ctx context.Context, path, expectedDigest string) (Checkpo
 		return manifest, errors.New("checkpoint digest or expected generation mismatch")
 	}
 	return manifest, nil
+}
+
+// A v2 bundle is complete only with its original private inactive marker.
+func verifyCheckpointGate(ctx context.Context, path string) error {
+	fail := errors.New("checkpoint inactive marker missing or invalid")
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() != int64(len(checkpointInactiveMarker)) {
+		return fail
+	}
+	owner, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || owner.Uid != uint32(os.Geteuid()) || owner.Nlink != 1 {
+		return fail
+	}
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return fail
+	}
+	f := os.NewFile(uintptr(fd), path)
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return fail
+	}
+	body, err := io.ReadAll(io.LimitReader(checkpointReader{ctx, f}, int64(len(checkpointInactiveMarker)+1)))
+	if err != nil {
+		return err
+	}
+	if string(body) != checkpointInactiveMarker {
+		return fail
+	}
+	return nil
 }

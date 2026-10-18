@@ -9,13 +9,15 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	_ "modernc.org/sqlite"
 )
 
 var (
-	ErrNotFound = errors.New("manifest not found")
-	ErrExists   = errors.New("manifest already exists")
+	ErrNotFound       = errors.New("manifest not found")
+	ErrExists         = errors.New("manifest already exists")
+	ErrRestoreBlocked = errors.New("inactive or unsafe database path; writable access blocked")
 )
 
 type Store struct {
@@ -42,6 +44,9 @@ func openDatabase(ctx context.Context, path string, existing bool) (*Store, erro
 		return nil, err
 	}
 
+	if err := checkDatabaseRestoreGate(absolute); err != nil {
+		return nil, err
+	}
 	if !existing {
 		if err := os.MkdirAll(filepath.Dir(absolute), 0700); err != nil {
 			return nil, err
@@ -80,6 +85,10 @@ func openDatabase(ctx context.Context, path string, existing bool) (*Store, erro
 		}
 	}
 
+	if err := checkDatabaseRestoreGate(absolute); err != nil {
+		return fail(err)
+	}
+
 	for _, statement := range []string{
 		"PRAGMA busy_timeout = 5000",
 		"PRAGMA foreign_keys = ON",
@@ -96,6 +105,45 @@ func openDatabase(ctx context.Context, path string, existing bool) (*Store, erro
 	}
 
 	return &Store{db: db}, nil
+}
+
+// Marker presence (including malformed or inaccessible markers) blocks writable
+// opens. Follow database aliases so a symlink cannot bypass its target's gate.
+// This does not authenticate freshness or fence stores that are already open.
+func checkDatabaseRestoreGate(path string) error {
+	for depth := 0; depth < 40; depth++ {
+		if _, err := os.Lstat(path + ".restore-gate"); !os.IsNotExist(err) {
+			return ErrRestoreBlocked
+		}
+		// Resolve each final-component symlink separately so intermediate
+		// alias markers cannot be skipped. Parent symlinks are also followed
+		// by Lstat on the marker's path.
+		info, err := os.Lstat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return ErrRestoreBlocked
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			// SQLite journal/lock naming cannot safely coordinate hard-link
+			// aliases, which could also omit a candidate's adjacent marker.
+			stat, ok := info.Sys().(*syscall.Stat_t)
+			if !info.Mode().IsRegular() || !ok || stat.Nlink != 1 {
+				return ErrRestoreBlocked
+			}
+			return nil
+		}
+		target, err := os.Readlink(path)
+		if err != nil {
+			return ErrRestoreBlocked
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		path = filepath.Clean(target)
+	}
+	return ErrRestoreBlocked
 }
 
 func (s *Store) Close() error {

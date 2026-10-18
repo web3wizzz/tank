@@ -1,5 +1,42 @@
 # Tank Phase 1 development status
 
+### Inactive checkpoint startup enforcement — 2026-10-18
+
+New replicated bundles use format v2 and durably publish an inactive marker
+before database bytes. Verification requires that original private owned marker;
+missing, damaged or aliased markers fail. Existing v1 bundles remain compatible
+for byte-integrity inspection only; no activation permission is granted.
+
+Both writable metadata APIs now reject database-adjacent restore gates before
+creation/migration, including through symlink chains, and reject hard-linked or
+nonregular database files. Coordinator startup is tested to stop before service
+setup on a gated authority path. Read-only reconciliation/backup remains available
+and preserves exact snapshot bytes. No link/gate deletion or ownership change is
+performed; existing unsafe layouts require operator review. Already-open stores,
+arbitrary unmarked stale copies and loss of newest authority still require the
+existing quiescence, independent authenticated tip and enforceable signer fencing.
+
+Validation: full Go race suite, vet and command builds pass; focused authority,
+worker and coordinator race tests pass. All five isolated Arc integration tests
+pass. The extended real loopback Arc/TLS restore case verifies both inactive
+replicas against canonical signed history/permanent budgets, rejects writable
+activation, and retries only the original lane with unchanged bytes and exactly
+one signature/submission. All 17 controller and two lost-authority regressions
+pass. Hard-kill controller testing now uses bounded marker handshakes rather than
+a scheduling-sensitive half-second sleep; production deadlines are unchanged.
+No public RPC, original custody, deployed contract or fee budget was used/changed.
+
+All five workflows passed for domain milestone `a01a5a3`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39084020964),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39084020972),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39084020988),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39084020913), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39084020986).
+Check the publication's CI for this additional safety milestone. Hosted backup
+mounts, true independent durability, current-tip authority and automatic promotion
+remain unimplemented/unaccepted; the complete record requirements remain in
+[signing-state recovery](docs/signing-state-recovery.md).
+
 ### Declared failure domains in placement — 2026-10-18
 
 New-upload admission and operational readiness now require three healthy distinct

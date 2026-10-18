@@ -1,9 +1,33 @@
 package main
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"tank.local/tank/internal/metadata"
 )
+
+func TestCoordinatorRefusesInactiveDatabaseBeforeServing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "inactive.sqlite")
+	if err := os.WriteFile(path+".restore-gate", []byte("synthetic inactive checkpoint"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TANK_DATABASE_PATH", path)
+	t.Setenv("TANK_REQUIRE_EXISTING_DATABASE", "false")
+	t.Setenv("TANK_COORDINATOR_ADDR", "127.0.0.1:8080")
+	t.Setenv("TANK_NODE_ADDR", "127.0.0.1:9101")
+	// Invalid node configuration would be reached only after opening authority.
+	t.Setenv("TANK_NODES", "")
+	if err := run(); !errors.Is(err, metadata.ErrRestoreBlocked) {
+		t.Fatalf("inactive authority was not rejected before service setup: %v", err)
+	}
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatal("inactive bootstrap created a database")
+	}
+}
 
 func TestNodeDomainRequirementIsExplicit(t *testing.T) {
 	t.Setenv("TANK_NODES", "http://127.0.0.1:9101,http://127.0.0.1:9102,http://127.0.0.1:9103")

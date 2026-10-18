@@ -5,6 +5,7 @@ package registry
 import (
 	"bytes"
 	"context"
+	"errors"
 	"math/big"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -84,18 +85,36 @@ func TestArcLocalRestoreCanonicalProofAndUnchangedRetry(t *testing.T) {
 		t.Fatal("durable state missing")
 	}
 	original := append([]byte(nil), state.Lanes[0].Raw...)
-	snapshot := filepath.Join(t.TempDir(), "restore.sqlite")
-	if store.Backup(ctx, snapshot) != nil {
-		t.Fatal("snapshot failed")
+	copies := []string{filepath.Join(t.TempDir(), "first"), filepath.Join(t.TempDir(), "second")}
+	if completed, err := metadata.CreateCheckpoints(ctx, path, copies); err != nil || len(completed) != 2 {
+		t.Fatal("replicated checkpoint failed", err)
 	}
-	candidate, err := metadata.OpenRestoreReadOnly(ctx, snapshot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	saved, err := candidate.RestoreSnapshot(ctx)
-	candidate.Close()
-	if err != nil || CheckRestoreState(ctx, saved, policy, reader) != nil || !bytes.Equal(saved.Lanes[0].Raw, original) {
-		t.Fatal("canonical restore proof failed")
+	var digest string
+	for _, copy := range copies {
+		manifest, err := metadata.VerifyCheckpoint(ctx, copy, digest)
+		if err != nil || manifest.Version != 2 {
+			t.Fatal("inactive replica verification failed", err)
+		}
+		digest = manifest.SHA256
+		snapshot := filepath.Join(copy, "snapshot.sqlite")
+		if opened, err := metadata.OpenExisting(ctx, snapshot); !errors.Is(err, metadata.ErrRestoreBlocked) {
+			if opened != nil {
+				opened.Close()
+			}
+			t.Fatal("replica permitted writable activation", err)
+		}
+		candidate, err := metadata.OpenRestoreReadOnly(ctx, snapshot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err := candidate.RestoreSnapshot(ctx)
+		candidate.Close()
+		if err != nil || CheckRestoreState(ctx, saved, policy, reader) != nil || !bytes.Equal(saved.Lanes[0].Raw, original) {
+			t.Fatal("canonical replicated restore proof failed")
+		}
+		if _, err := metadata.VerifyCheckpoint(ctx, copy, digest); err != nil {
+			t.Fatal("read-only proof changed inactive replica", err)
+		}
 	}
 	store.Close()
 	store, err = metadata.Open(ctx, path)

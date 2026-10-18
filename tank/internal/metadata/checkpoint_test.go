@@ -3,6 +3,7 @@ package metadata
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"math/big"
 	"os"
@@ -89,7 +90,7 @@ func TestReplicatedCheckpointPreservesSecurityStateAfterPrimaryLoss(t *testing.T
 		t.Fatal(err)
 	} // Only synthetic test primary.
 	for _, path := range copies {
-		restored, err := Open(ctx, filepath.Join(path, "snapshot.sqlite"))
+		restored, err := OpenRestoreReadOnly(ctx, filepath.Join(path, "snapshot.sqlite"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,6 +112,9 @@ func TestReplicatedCheckpointPreservesSecurityStateAfterPrimaryLoss(t *testing.T
 			t.Fatal("cross-user access", err)
 		}
 		restored.Close()
+		if _, err := VerifyCheckpoint(ctx, path, a.SHA256); err != nil {
+			t.Fatal("read-only inspection changed bundle", err)
+		}
 	}
 }
 
@@ -188,5 +192,79 @@ func TestCheckpointRejectsDamagePartialAliasesAndWrongGeneration(t *testing.T) {
 	}
 	if _, err = VerifyCheckpoint(canceled, paths[1], ""); err == nil {
 		t.Fatal("verify cancellation ignored")
+	}
+}
+
+func TestCheckpointV2InactiveGateAndV1IntegrityCompatibility(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	primary := filepath.Join(dir, "primary.sqlite")
+	store, err := Open(ctx, primary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	paths := []string{filepath.Join(dir, "first"), filepath.Join(dir, "second")}
+	if _, err = CreateCheckpoints(ctx, primary, paths); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := VerifyCheckpoint(ctx, paths[0], "")
+	if err != nil || manifest.Version != 2 {
+		t.Fatal("new checkpoint was not gated v2", err)
+	}
+	snapshot := filepath.Join(paths[0], "snapshot.sqlite")
+	before, err := os.ReadFile(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, open := range []func(context.Context, string) (*Store, error){Open, OpenExisting} {
+		opened, err := open(ctx, snapshot)
+		if opened != nil {
+			opened.Close()
+		}
+		if !errors.Is(err, ErrRestoreBlocked) {
+			t.Fatal("checkpoint opened writable", err)
+		}
+	}
+	after, err := os.ReadFile(snapshot)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("rejected opens modified checkpoint", err)
+	}
+	gate := snapshot + ".restore-gate"
+	if err = os.WriteFile(gate, []byte(strings.Repeat("x", len(checkpointInactiveMarker))), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = VerifyCheckpoint(ctx, paths[0], ""); err == nil {
+		t.Fatal("damaged marker accepted")
+	}
+	if err = os.Remove(gate); err != nil {
+		t.Fatal(err)
+	} // Only this synthetic bundle marker.
+	if _, err = VerifyCheckpoint(ctx, paths[0], ""); err == nil {
+		t.Fatal("missing v2 marker accepted")
+	}
+	if err = os.Symlink(filepath.Join(paths[1], "snapshot.sqlite.restore-gate"), gate); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = VerifyCheckpoint(ctx, paths[0], ""); err == nil {
+		t.Fatal("symlink marker accepted")
+	}
+	if err = os.Remove(gate); err != nil {
+		t.Fatal(err)
+	}
+	manifest.Version = 1
+	body, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(paths[0], "manifest.json"), body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := VerifyCheckpoint(ctx, paths[0], manifest.SHA256)
+	if err != nil || legacy.Version != 1 {
+		t.Fatal("legacy byte-integrity verification rejected", err)
+	}
+	if _, err = VerifyCheckpoint(ctx, paths[1], manifest.SHA256); err != nil {
+		t.Fatal("other inactive copy changed", err)
 	}
 }
