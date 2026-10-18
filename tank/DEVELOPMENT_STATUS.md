@@ -1,5 +1,47 @@
 # Tank Phase 1 development status
 
+### Autonomous continuation checkpoint — 2026-10-18
+
+Six focused implementation milestones are committed/pushed: offline authority
+integrity contract, fail-closed node capacity parsing, bounded CLI file/JSON input,
+existing-authority administration, credential directory publication and compiled
+artifact validation before custody/RPC. The already-published recovery inventory
+follow-up was reused. No open PR needed integration. Scoped review and meaningful
+regressions accompany each milestone; no known local check failure remains at
+code checkpoint `7f5719d`. This is implementation/test evidence, not an independent
+security audit. No private databases/keys, existing deployed contracts, journals,
+revocations or fee budgets were changed; no public RPC or paid infrastructure was
+used for validation.
+
+All five workflows passed for latest code checkpoint `7f5719d`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39117270266),
+[contracts/Arc-local](https://github.com/web3wizzz/tank/actions/runs/39117270280),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39117270353),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39117270281), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39117270283).
+Updated release notes and changed local documentation links were checked without
+executing any documented public/operator command. Check this documentation
+publication's workflows as well; the links above identify tested code exactly.
+
+Exact next recovery work is in [the mutation map](docs/authority-mutation-map.md):
+versioned semantic commands and a complete-state bootstrap/digest; a local
+applied-sequence marker committed atomically with replay; faults at remote append,
+local apply and response; custody intent/budget persistence before signing and
+immutable bytes before release. Preserve all eleven tables, all 22 mutation paths,
+original historical evidence and existing ceilings. Schema migration/rollback and
+all-writer coverage need review before runtime integration. The current contract
+is unwired and test backend memory-only; it cannot recover signing authority.
+
+Independent backend host/storage/custody, authenticated fresh-tip transport and
+enforceable old-writer/custody fencing remain absent. Missing newest authority,
+unresolved signing intent or missing required history must continue to block
+signing/activation. Hosted inventory/operator access, operational TLS/monitoring,
+off-machine durability and actual capacity/failure measurements remain explicit
+external gates; none was invented or substituted with local evidence. Five npm
+development entries from the unresolved braces advisory remain documented in
+[dependency exposure](docs/dependency-exposure.md); no compatible patched release
+was identified at the last registry check, and no downgrade/suppression was used.
+
 ### Nonblocking compiled-artifact validation — 2026-10-18
 
 Reproduced a named-pipe open hanging compiled artifact loading past the command's

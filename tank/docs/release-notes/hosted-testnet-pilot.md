@@ -28,6 +28,17 @@ runs on local owned processes; no independently hosted pilot is claimed.
   recovery keys excluded. The chainless fixture stays `not_queued`; opt-in local
   container CI verifies queued/restart registration on chain 31337, exact encrypted
   recovery, isolation and persistence. Neither provides public Arc signing proof.
+- Node capacity parsing rejects unknown/null counters and prevents case aliases
+  overriding validated limits. CLI inputs and compiled-artifact inputs reject
+  named pipes without waiting for writers; CLI API responses require one complete
+  JSON value within the existing limit.
+- Existing-authority access administration refuses missing/uninitialized databases;
+  explicit user creation retains bootstrap. Credential publication flushes new
+  directory entries before success and retains new-key-only revocation on failure.
+- An [offline authority journal contract](../authority-journal-protocol.md) and
+  [complete mutation inventory](../authority-mutation-map.md) support recovery
+  design/testing. They do not implement independently durable authority, fresh-tip
+  authentication, custody fencing or signing recovery after newest-state loss.
 
 ## Verification
 
