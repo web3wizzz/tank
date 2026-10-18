@@ -1,5 +1,22 @@
 # Tank Phase 1 development status
 
+### Fail-closed node capacity decoding — 2026-10-18
+
+Reproduced two report-admission defects: JSON `null` counters silently became zero
+(including an unlimited quota), and case-insensitive struct decoding let uppercase
+aliases overwrite the exact validated counters. Node clients now decode only the
+four required exact keys and reject null/noninteger/negative values; zero remains
+the explicit supported unlimited limit. Capacity is still derived from numeric
+counters rather than trusting an upstream boolean. Actual atomic node quotas stay
+unchanged.
+
+Focused node/coordinator race suites and vet pass. Regressions first failed on
+each defect, then passed with the fix. Coordinator checks prove readiness remains
+degraded with malformed reports, a healthy spare supports exact-byte retrieval,
+and fewer than three eligible domains refuses admission before shard/manifest
+writes. Scoped review identified the alias case and it was fixed before publication.
+No coding, file-ID, manifest, ownership or signer behavior changed.
+
 ### Offline authority protocol foundation — 2026-10-18
 
 Repository/PR/CI inspection reused clean `88a3699`: no open PRs and all five
@@ -16,8 +33,12 @@ epochs, cancellation, buffer isolation and corrupted/gapped/truncated history.
 Toy replay preserves synthetic revocation/reservation/immutable bytes after local
 state loss. Fixed digest vectors were independently reproduced in Python. Scoped
 review found no blocking defects; clarified sanitized adapter error requirements.
-Publication CI is checked after push; previous five-workflow evidence remains
-available on `88a3699`.
+Full Go race suite, vet and command builds pass. All five workflows passed for
+`281fe9c`: [Go](https://github.com/web3wizzz/tank/actions/runs/39085473381),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39085473380),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39085473407),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39085473396), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39085473370).
 
 This does not authenticate freshness or prove independent durability. An old prefix
 with its old tip still passes integrity checks, explicitly tested/documented.

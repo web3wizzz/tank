@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -133,6 +134,79 @@ func TestUploadSkipsNodeWithoutWholeFileHeadroom(t *testing.T) {
 	status, err := f.backends[0].Status(context.Background())
 	if err != nil || status.UsedFiles != 0 {
 		t.Fatal("capacity rejection wrote shards")
+	}
+}
+
+func TestUploadAndReadinessRejectUnknownNodeCapacity(t *testing.T) {
+	for _, invalidNodes := range []int{1, 2} {
+		t.Run(fmt.Sprintf("invalid-nodes-%d", invalidNodes), func(t *testing.T) {
+			f := newUploadFixture(t, false, false)
+			for i := 0; i < invalidNodes; i++ {
+				original := f.servers[i].Config.Handler
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/ops/status" {
+						w.Write([]byte(`{"used_bytes":0,"byte_limit":null,"used_files":0,"file_limit":0}`))
+						return
+					}
+					original.ServeHTTP(w, r)
+				}))
+				t.Cleanup(server.Close)
+				client, err := node.NewClient(server.URL, strings.Repeat("u", 32))
+				if err != nil {
+					t.Fatal(err)
+				}
+				delete(f.service.byURL, f.servers[i].URL)
+				f.service.byURL[client.BaseURL] = client
+				f.service.nodes[i] = client
+				f.service.placementNodes[i] = client
+				f.servers[i] = server
+			}
+			configureUploadDomains(t, f, "host-a", "host-b", "host-c", "host-d")
+			response := httptest.NewRecorder()
+			f.service.operationsHandler(response, httptest.NewRequest(http.MethodGet, "/ops/status", nil))
+			var status struct {
+				UploadReady bool `json:"upload_ready"`
+				Degraded    bool `json:"degraded"`
+			}
+			if response.Code != http.StatusOK {
+				t.Fatal("operations unavailable")
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil {
+				t.Fatal(err)
+			}
+			if !status.Degraded || status.UploadReady != (invalidNodes == 1) {
+				t.Fatal("unknown capacity counted toward readiness")
+			}
+			data := bytes.Repeat([]byte("eligible healthy spare"), 100)
+			m, err := f.service.Tank(context.Background(), data)
+			if invalidNodes == 1 {
+				if err != nil {
+					t.Fatal(err)
+				}
+				checkUploadPlacement(t, m, f.servers[0].URL)
+				got, err := f.service.Retrieve(context.Background(), m.FileID)
+				if err != nil || !bytes.Equal(got, data) {
+					t.Fatal("spare retrieval failed", err)
+				}
+			} else {
+				if !errors.Is(err, ErrUnavailable) {
+					t.Fatal("unknown capacity admitted", err)
+				}
+				ids, err := f.store.List(context.Background(), "", 100)
+				if err != nil || len(ids) != 0 {
+					t.Fatal("failed admission published metadata", err)
+				}
+			}
+			for i, backend := range f.backends {
+				if i >= invalidNodes && invalidNodes == 1 {
+					continue
+				}
+				capacity, err := backend.Status(context.Background())
+				if err != nil || capacity.UsedFiles != 0 {
+					t.Fatal("ineligible admission wrote shards", err)
+				}
+			}
+		})
 	}
 }
 

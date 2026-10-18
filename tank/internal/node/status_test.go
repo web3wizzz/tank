@@ -80,3 +80,35 @@ func TestNodeStatusRejectsMalformedReportsAndTimesOut(t *testing.T) {
 		t.Fatal("status ignored deadline")
 	}
 }
+
+func TestNodeStatusRejectsNullCapacityCounters(t *testing.T) {
+	for _, field := range []string{"used_bytes", "byte_limit", "used_files", "file_limit"} {
+		t.Run(field, func(t *testing.T) {
+			body := strings.Replace(`{"used_bytes":0,"byte_limit":0,"used_files":0,"file_limit":0}`, `"`+field+`":0`, `"`+field+`":null`, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(body)) }))
+			defer server.Close()
+			client, err := NewClient(server.URL, strings.Repeat("n", 32))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := client.Status(context.Background()); err == nil {
+				t.Fatal("unknown capacity accepted as zero/unlimited")
+			}
+		})
+	}
+}
+
+func TestNodeStatusCaseAliasesCannotOverrideCapacity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"used_bytes":10,"byte_limit":10,"used_files":1,"file_limit":1,"USED_BYTES":0,"BYTE_LIMIT":0,"USED_FILES":0,"FILE_LIMIT":0,"at_capacity":false}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, strings.Repeat("n", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := client.Status(context.Background())
+	if err != nil || status.UsedBytes != 10 || status.ByteLimit != 10 || status.UsedFiles != 1 || status.FileLimit != 1 || !status.AtCapacity {
+		t.Fatal("case aliases overrode the validated capacity counters", err)
+	}
+}

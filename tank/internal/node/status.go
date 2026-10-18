@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -32,13 +33,18 @@ func (c *Client) Status(ctx context.Context) (storage.Status, error) {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return result, errors.New("invalid node status")
 	}
-	for _, name := range []string{"used_bytes", "byte_limit", "used_files", "file_limit"} {
-		if _, ok := fields[name]; !ok {
+	// Decode exactly the validated keys. A second struct unmarshal would match
+	// case-insensitively, allowing an unknown alias to overwrite these counters.
+	for name, destination := range map[string]any{
+		"used_bytes": &result.UsedBytes,
+		"byte_limit": &result.ByteLimit,
+		"used_files": &result.UsedFiles,
+		"file_limit": &result.FileLimit,
+	} {
+		value, ok := fields[name]
+		if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) || json.Unmarshal(value, destination) != nil {
 			return result, errors.New("invalid node status")
 		}
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return result, errors.New("invalid node status")
 	}
 	if result.UsedBytes < 0 || result.ByteLimit < 0 || result.UsedFiles < 0 || result.FileLimit < 0 {
 		return result, errors.New("invalid node status")
