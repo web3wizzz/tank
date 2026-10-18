@@ -129,6 +129,14 @@ also covers version-2 marker rejection, writable bootstrap/open blocking through
 symlink aliases, hard-link/nonregular-file refusal without database modification,
 read-only inspection, and legacy
 version-1 byte-integrity compatibility.
+
+Compiled contract artifacts used by reconciliation/authorized broadcast must be
+regular files, at most 4 MiB. Direct or symlinked named pipes are rejected without
+waiting for a writer; ordinary compiled-file symlinks remain supported. Broadcast
+validates the artifact and budget configuration before custody/RPC setup; read-only
+reconciliation validates its artifact before RPC. This does not bound stalled
+regular-file I/O on an unresponsive filesystem or change activation permissions.
+
 `python3 scripts/test-disaster-recovery-boundary.py` covers lost-newest-state
 rejection by the existing restore controller. These are local regression checks;
 they do not establish independent-host durability, authoritative newest-state

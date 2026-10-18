@@ -1,5 +1,28 @@
 # Tank Phase 1 development status
 
+### Nonblocking compiled-artifact validation — 2026-10-18
+
+Reproduced a named-pipe open hanging compiled artifact loading past the command's
+context deadline. The loader now opens nonblocking and checks the descriptor is
+a nonempty regular file within 4 MiB before reading, retaining the post-read cap
+and regular-file symlink support. Disposable direct/symlink FIFO tests use bounded
+subprocesses; malformed, empty, concatenated, oversized and ordinary artifact
+cases remain covered. The original FIFO regression timed out; fixed checks pass.
+
+Authorized broadcast now validates configured aggregate budget/artifact after all
+authority/gate checks and before opening custody or RPC. Preparation-only mode
+does not require a compiled artifact. Read-only restore validation checks artifact
+input before RPC, retaining exact-runtime/canonical/budget reconciliation. A
+command regression proves invalid artifact/budget refusal before custody setup.
+No public RPC, original custody, existing deployed contract or fee budget is
+used/changed. Synthetic signing/deployment is confined to local generated-custody
+fixtures. No authority/schema migration is added. Stalled regular-file I/O remains a
+filesystem/backend dependency; no general I/O deadline guarantee is claimed.
+Registry/command race suites, vet and all command builds pass. All five isolated
+Arc integration tests pass using the pinned local emulator and existing compiled
+artifact; the operation-owned unstarted extraction container/binary were removed.
+Scoped review found no blocking defect and confirmed authority gate ordering.
+
 ### Credential publication durability — 2026-10-18
 
 Credential export previously flushed only file contents, then reported success
@@ -17,6 +40,13 @@ usable and the moved original artifact is preserved. This is a local publication
 failure test, not a power-loss or independent-host durability measurement.
 Access-command race suite, vet and all command builds pass; scoped review found
 no blocking defect under the documented exclusive-parent precondition.
+
+All five workflows passed for `58767e3`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39117027288),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39117027286),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39117027441),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39117027302), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39117027335).
 
 ### Administrative existing-authority guard — 2026-10-18
 

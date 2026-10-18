@@ -62,13 +62,16 @@ func run() error {
 	if e != nil {
 		return invalid
 	}
+	_, runtime, e := registry.LoadDeploymentArtifact(os.Getenv("TANK_ARC_DEPLOY_ARTIFACT"))
+	if e != nil {
+		return invalid
+	}
 	reader, e := registry.OpenTestnetReader(ctx, registry.Config{ChainID: p.ChainID, RPCURL: os.Getenv("TANK_ARC_TESTNET_RPC"), Contract: contract, Registrant: account})
 	if e != nil {
 		return invalid
 	}
 	defer reader.Close()
-	_, runtime, e := registry.LoadDeploymentArtifact(os.Getenv("TANK_ARC_DEPLOY_ARTIFACT"))
-	if e != nil || reader.VerifyRuntime(ctx, runtime) != nil {
+	if reader.VerifyRuntime(ctx, runtime) != nil {
 		return invalid
 	}
 	if registry.CheckRestoreState(ctx, state, p, reader) != nil {

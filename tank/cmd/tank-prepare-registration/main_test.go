@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"tank.local/tank/internal/metadata"
 	"tank.local/tank/internal/registrationguard"
+	"tank.local/tank/internal/registry"
 	"testing"
 )
 
@@ -129,5 +130,42 @@ func TestMissingAndEmptyAuthorityRejectBeforeCustody(t *testing.T) {
 	}
 	if err := run(); !errors.Is(err, authorityUnavailable) {
 		t.Fatalf("empty authority reached custody: %v", err)
+	}
+}
+
+func TestInvalidArtifactRejectsBeforeCustodyAndRPC(t *testing.T) {
+	previous := os.Args
+	t.Cleanup(func() { os.Args = previous })
+	os.Args = []string{"tank-prepare-registration", "--broadcast"}
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "state.sqlite")
+	store, err := metadata.Open(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+	for key, value := range map[string]string{
+		"TANK_CHAIN_ID": "5042002", "TANK_REGISTRY_ADDR": "0x1111111111111111111111111111111111111111",
+		"TANK_ARC_TESTNET_SENDER":  "0x2222222222222222222222222222222222222222",
+		"TANK_ARC_TESTNET_MAX_GAS": "1000000", "TANK_ARC_TESTNET_MAX_FEE": "65000000000",
+		"TANK_ARC_TESTNET_MAX_TIP": "1000000000", "TANK_ARC_TESTNET_MAX_COST": "8000000000000000",
+		"TANK_ARC_TESTNET_CONFIRMATIONS": "1", "TANK_DATABASE_PATH": path,
+		"TANK_REGISTRATION_LOCK_PATH": "", "TANK_ARC_TESTNET_TOTAL_BUDGET": "100000000000000000",
+		"TANK_ARC_DEPLOY_ARTIFACT":  filepath.Join(dir, "missing-artifact"),
+		"TANK_SIGNER_KEYSTORE_FILE": filepath.Join(dir, "missing-custody"),
+		"TANK_SIGNER_PASSWORD_FILE": filepath.Join(dir, "missing-password"),
+		"TANK_ARC_TESTNET_RPC":      "https://unreachable.invalid",
+	} {
+		t.Setenv(key, value)
+	}
+	if err := run(); !errors.Is(err, registry.ErrDeployment) {
+		t.Fatal("invalid artifact reached custody/RPC setup", err)
+	}
+	t.Setenv("TANK_ARC_TESTNET_TOTAL_BUDGET", "invalid")
+	if err := run(); !errors.Is(err, invalid) {
+		t.Fatal("invalid budget reached artifact/custody setup", err)
 	}
 }

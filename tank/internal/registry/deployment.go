@@ -274,11 +274,17 @@ func writeDeploymentJournal(path string, raw []byte) error {
 
 // LoadDeploymentArtifact uses Forge's compiled creation and runtime bytecode.
 func LoadDeploymentArtifact(path string) ([]byte, []byte, error) {
-	f, e := os.Open(path)
+	// A context deadline cannot interrupt a blocking FIFO open. Check the actual
+	// descriptor before reading; ordinary compiled-artifact symlinks remain valid.
+	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if e != nil {
 		return nil, nil, ErrDeployment
 	}
 	defer f.Close()
+	info, e := f.Stat()
+	if e != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 4<<20 {
+		return nil, nil, ErrDeployment
+	}
 	data, e := io.ReadAll(io.LimitReader(f, (4<<20)+1))
 	if e != nil || len(data) > 4<<20 {
 		return nil, nil, ErrDeployment

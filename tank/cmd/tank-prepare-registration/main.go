@@ -109,6 +109,19 @@ func run() error {
 		return authorityUnavailable
 	}
 	defer store.Close()
+	var runtime []byte
+	var budget *big.Int
+	if broadcast {
+		var ok bool
+		budget, ok = new(big.Int).SetString(os.Getenv("TANK_ARC_TESTNET_TOTAL_BUDGET"), 10)
+		if !ok || budget.Sign() <= 0 || budget.BitLen() > 256 {
+			return invalid
+		}
+		_, runtime, err = registry.LoadDeploymentArtifact(os.Getenv("TANK_ARC_DEPLOY_ARTIFACT"))
+		if err != nil {
+			return err
+		}
+	}
 	signer, err := registry.OpenKeystoreSigner(ctx, os.Getenv("TANK_SIGNER_KEYSTORE_FILE"), os.Getenv("TANK_SIGNER_PASSWORD_FILE"), p.Registrant)
 	if err != nil {
 		return err
@@ -121,15 +134,6 @@ func run() error {
 	defer reader.Close()
 	var w *registry.SignedWorker
 	if broadcast {
-		budget, ok := new(big.Int).SetString(os.Getenv("TANK_ARC_TESTNET_TOTAL_BUDGET"), 10)
-		if !ok || budget.Sign() <= 0 || budget.BitLen() > 256 {
-			return invalid
-		}
-		var runtime []byte
-		_, runtime, err = registry.LoadDeploymentArtifact(os.Getenv("TANK_ARC_DEPLOY_ARTIFACT"))
-		if err != nil {
-			return err
-		}
 		if err := reader.VerifyRuntime(ctx, runtime); err != nil {
 			return err
 		}
