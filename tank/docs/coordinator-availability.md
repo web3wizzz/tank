@@ -51,6 +51,10 @@ replacement database or credential output. Explicit `tank-access create` retains
 initial bootstrap; never use it to replace lost authority during an incident.
 These checks cannot detect an initialized stale database or a wrong initialized
 volume; the newest-tip and fencing requirements still apply.
+The listing commands use SQL read-only schema-8 inspection, so they can inspect
+inactive checkpoints without migration or activation. Their output is operator
+metadata, never permission to serve authorization from a stale standby. Creation,
+issuance and revocation retain writable-path restore gates.
 
 Both writable APIs now refuse `DATABASE_PATH.restore-gate` before creation or
 migration, including markers reached through database symlink chains, and refuse

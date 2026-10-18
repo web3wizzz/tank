@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"os"
@@ -239,5 +241,113 @@ func TestCredentialPublicationFailureRevokesOnlyNewKey(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(moved, "new.json")); err != nil {
 		t.Fatal("moved original artifact was deleted", err)
+	}
+}
+
+func TestAdministrativeListingsInspectInactiveCheckpointReadOnly(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	source := filepath.Join(dir, "live.sqlite")
+	store, err := metadata.Open(ctx, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	key, token, err := store.CreateAccessKey(ctx, "synthetic inactive inspection")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RevokeAccessKey(ctx, key.ID); err != nil {
+		t.Fatal(err)
+	}
+	bundles := []string{filepath.Join(dir, "copy-a"), filepath.Join(dir, "copy-b")}
+	if _, err := metadata.CreateCheckpoints(ctx, source, bundles); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(bundles[0], "snapshot.sqlite")
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker, err := os.ReadFile(path + ".restore-gate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"users", "--db", path}, {"keys", "--db", path, "--user-id", key.PrincipalID}} {
+		var out bytes.Buffer
+		if err := runWithOutput(args, &out); err != nil {
+			t.Fatal("read-only inactive inspection failed", err)
+		}
+		if !bytes.Contains(out.Bytes(), []byte(key.PrincipalID)) {
+			t.Fatal("expected operator metadata missing")
+		}
+		if bytes.Contains(out.Bytes(), []byte(token)) || bytes.Contains(out.Bytes(), []byte("token_hash")) {
+			t.Fatal("listing exposed credential material")
+		}
+		if args[0] == "keys" {
+			var keys []metadata.CredentialInfo
+			if err := json.Unmarshal(out.Bytes(), &keys); err != nil || len(keys) != 1 || !keys[0].Revoked {
+				t.Fatal("revocation metadata lost", err)
+			}
+		}
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterMarker, err := os.ReadFile(path + ".restore-gate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sha256.Sum256(before) != sha256.Sum256(after) || !bytes.Equal(marker, afterMarker) {
+		t.Fatal("listing mutated inactive authority/gate")
+	}
+	entries, err := os.ReadDir(bundles[0])
+	if err != nil || len(entries) != 3 {
+		t.Fatal("listing created database sidecars", err)
+	}
+	if writable, err := metadata.OpenExisting(ctx, path); err == nil {
+		writable.Close()
+		t.Fatal("inspection activated checkpoint")
+	}
+}
+
+func TestAdministrativeListingsNeverMigrateOlderSchema(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "schema-seven.sqlite")
+	store, err := metadata.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`DROP TABLE registration_spend_reservations; DROP TABLE registration_spend_accounts; PRAGMA user_version=7;`); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"users", "--db", path}, {"keys", "--db", path, "--user-id", "synthetic-user"}} {
+		var out bytes.Buffer
+		if err := runWithOutput(args, &out); err == nil || out.Len() != 0 {
+			t.Fatal("unsupported schema listed or migrated")
+		}
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sha256.Sum256(before) != sha256.Sum256(after) {
+		t.Fatal("listing changed older schema bytes")
 	}
 }

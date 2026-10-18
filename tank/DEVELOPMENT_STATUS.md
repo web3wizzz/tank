@@ -1,5 +1,29 @@
 # Tank Phase 1 development status
 
+### Read-only administrative recovery inspection — 2026-10-18
+
+`tank-access users` and `keys` now reuse the existing SQL read-only schema-8 opener,
+so listing cannot migrate an older database and operators can inspect inactive
+checkpoints without deleting gates. Creation remains explicit bootstrap and
+issuance/revocation use existing-authority writable opens with restore guards.
+Listings reject unsupported schemas and final-component database symlinks.
+
+Access-command race suite, vet and all command builds pass. A v2 checkpoint
+regression inspects principals and revoked-key metadata while preserving exact
+database/gate bytes and the fixture's three-file bundle, exposes no token/hash,
+and proves writable opening remains blocked. Synthetic schema-7 inspection fails
+without changing bytes. Scoped review found no blocking defect. SQL read-only mode
+is not a universal no-sidecar guarantee for live WAL databases; no such claim is
+made. Listed backup metadata does not prove freshness or permit user service,
+signing or activation. No original authoritative state was opened or changed.
+
+All five workflows passed for preceding checkpoint `e16e7db`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39117515505),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39117515552),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39117515512),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39117515511), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39117515547).
+
 ### Autonomous continuation checkpoint — 2026-10-18
 
 Six focused implementation milestones are committed/pushed: offline authority

@@ -154,8 +154,13 @@ func runWithOutput(args []string, out io.Writer) error {
 	// Only explicit user creation bootstraps authority. Listing, replacement and
 	// revocation must never turn a missing/wrong volume into a fresh empty journal.
 	open := metadata.OpenExisting
-	if args[0] == "create" {
+	switch args[0] {
+	case "create":
 		open = metadata.Open
+	case "users", "keys":
+		// Operator inspection is read-only, including inactive recovery copies.
+		// It must never migrate a database or grant authority to serve/sign.
+		open = metadata.OpenRestoreReadOnly
 	}
 	store, err := open(ctx, *database)
 	if err != nil {

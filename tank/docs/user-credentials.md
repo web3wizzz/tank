@@ -48,6 +48,15 @@ IDs and labels. Credential listings include credential IDs, the user ID, expiry,
 and revocation state. They never return a token or token hash. Expired credentials
 are visible so administrators can inspect the user's credential history.
 
+Listings open schema-8 databases read-only and never run migrations. They reject
+older/unsupported schemas and final-component database symlinks; use the actual
+regular database path. Operators may inspect `users`/`keys` on an inactive
+checkpoint without removing its marker. That metadata is historical evidence,
+not proof of current authorization or permission to serve users or sign. Issuance,
+revocation and creation still reject inactive checkpoint paths. SQL read-only mode
+does not guarantee the absence of SQLite sidecars for every live WAL database;
+quiesced checkpoint inspection is tested separately.
+
 ## Renew access for an existing user
 
 ```bash
