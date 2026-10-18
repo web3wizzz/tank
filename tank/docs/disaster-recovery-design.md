@@ -1,7 +1,7 @@
 # Disaster recovery when the newest control database is lost
 
 Status: reviewed design proposal and isolated regression evidence; no independent
-backup service, authority journal, remote signer or restore activation is
+backup service, production authority journal, remote signer or restore activation is
 implemented by this document. Current signing remains one host/one account.
 Loss of the newest live comparison baseline blocks the existing restore controller.
 
@@ -139,9 +139,11 @@ all mutation paths exist, host-loss recovery remains signing-blocked.
 
 ## Implementation and acceptance gates
 
-A focused next implementation is an authority interface and synthetic fault-injection
-backend, followed by coverage of all metadata mutation paths and signer-side durable
-intent/bytes protocol. A production backend and custody epoch enforcement then need
+The isolated [authority protocol contract](authority-journal-protocol.md) now defines
+an unwired Go interface, versioned integrity verification and a test-only synthetic
+fault backend. It has no durable backend, authenticated fresh-tip transport, metadata
+writer integration or custody. Next is coverage of all metadata mutation paths and
+signer-side durable intent/bytes protocol. A production backend and custody epoch enforcement need
 selected independent infrastructure and operator access. Schema compatibility,
 initial authoritative bootstrap from existing private journals, and import of all
 historic reservations/bytes require a dedicated migration review. Do not reset the

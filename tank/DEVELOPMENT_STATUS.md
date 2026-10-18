@@ -1,5 +1,33 @@
 # Tank Phase 1 development status
 
+### Offline authority protocol foundation — 2026-10-18
+
+Repository/PR/CI inspection reused clean `88a3699`: no open PRs and all five
+publication workflows passed. Implemented the recovery design's next local step
+in `internal/authority`: an unwired linearizable journal contract, versioned
+genesis/record framing, bounded candidate validation and complete-prefix integrity
+verification. Exact retries preserve operation IDs and original receipts after
+unknown acknowledgements; changed requests conflict. No production backend or
+runtime call site was added; the synthetic backend is test-only.
+
+Race-tested fault cases cover concurrent writers, before-persist failure, lost
+acknowledgement, retry after later commits/epoch changes, partitions, stale storage
+epochs, cancellation, buffer isolation and corrupted/gapped/truncated history.
+Toy replay preserves synthetic revocation/reservation/immutable bytes after local
+state loss. Fixed digest vectors were independently reproduced in Python. Scoped
+review found no blocking defects; clarified sanitized adapter error requirements.
+Publication CI is checked after push; previous five-workflow evidence remains
+available on `88a3699`.
+
+This does not authenticate freshness or prove independent durability. An old prefix
+with its old tip still passes integrity checks, explicitly tested/documented.
+No metadata migration, live mutation routing, public signing, recovery activation,
+custody fencing, fee-budget change or host provisioning occurred. Next local work
+is full authoritative mutation coverage and semantic replay/bootstrap design;
+production transport/storage and old-signer fencing still require selected
+independent infrastructure. Existing newest-authority-loss gates remain closed.
+See [protocol contract and limits](docs/authority-journal-protocol.md).
+
 ### Current review continuation checkpoint — 2026-10-18
 
 Reused the previously published review branch, then published focused follow-ups
