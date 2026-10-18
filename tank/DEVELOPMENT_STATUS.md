@@ -1,5 +1,36 @@
 # Tank Phase 1 development status
 
+### Queued container registration restart — 2026-10-18
+
+Closed the review's container coverage gap: CI now stops the local worker before
+the real encrypted browser upload, queues stored manifests with bounded
+`tank-registration-worker --enqueue-only`, and asserts durable `pending` jobs with
+zero attempts/no transaction. Restarting the same database, shard and chain volumes
+completes registration. Another restart preserves exact ciphertext IDs, transaction
+hashes, attempt counts and the local account nonce. The one-shot queue command
+uses the same exclusive lane and initialized SQLite, performs no RPC/signing,
+rejects public URLs/unknown flags, and honors inactive candidate gates before
+opening metadata. Public Arc configuration/custody/budgets remain separate.
+
+Local acceptance passed end to end: three image builds, 68-package standalone
+inventory and final-image package-manager exclusion, eight healthy services,
+encrypted exact PDF/Unicode filename retrieval, recovery import, cross-user
+denial, queued recovery and two persistent restarts. Worker/registry race tests,
+vet, shell syntax and Python compilation pass; scoped code review found no further
+actionable defects. The disposable run `tank-ci-2026101801-1-277a07ff4d59` cleaned
+up its own fixture. Project names now have random suffixes; build/browser/checks/
+cleanup are bounded, and cleanup failure is reported. Existing user volumes were
+not used or removed. This is local simulation evidence, not hosted acceptance.
+
+The preceding checkpoint `af36a4b` is pushed and all five CI workflows passed:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39081135200),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39081135071),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39081135144),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39081135371), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39081135124).
+Check publication CI for this queued-restart milestone. Domain-aware placement
+is the next focused integration; independent-host and newest-authority gates remain.
+
 ### Replicated metadata checkpoints — 2026-10-17
 
 `tank-backup` now supports repeated explicit `--replica` destinations and a

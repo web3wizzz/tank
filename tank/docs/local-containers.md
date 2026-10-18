@@ -128,9 +128,10 @@ Volumes remain intact. Do not add `--volumes`, run a volume prune, or delete pri
 data to make verification pass. Resume with the same environment and `up` command.
 For a metadata snapshot, use `tank-backup` inside the coordinator with a **new**
 `/data/` destination and privately copy it off-machine. An online snapshot is not
-a signing/restore permit; see [backup safety](backup-restore.md). Containerized
-hosted signing/restore orchestration and automated container CI remain separate
-integration work, not features of this local packaging milestone.
+a signing/restore permit; see [backup safety](backup-restore.md) and
+[replicated checkpoints](signing-state-recovery.md). Containerized hosted
+signing/restore orchestration remains a separate integration gate. Disposable
+local container CI is described below.
 
 
 ## Opt-in local registration fixture
@@ -153,6 +154,13 @@ be initialized and its parent must be private and owned by the worker UID. Contr
 chain state persists in its own named volume. Missing registry with a changed
 nonce fails rather than resetting history. Never mount public custody here.
 
+For local maintenance, `tank-registration-worker --enqueue-only` reconciles stored
+manifests into pending jobs under the same exclusive worker lock, with a 30-second
+deadline and no RPC/signing/submission. Stop the normal worker before running it.
+It requires the same initialized database and explicit local-chain configuration;
+unknown flags, public RPC endpoints, concurrent workers and restore-candidate
+gates are rejected. It does not authorize public Arc operations or recovery.
+
 Public Arc signing is not supported by this development overlay. It remains an
 explicit separately authorized hosted-worker operation using existing signer
 custody, authoritative journal, canonical proof and fee limits. No Arc deployment,
@@ -161,6 +169,10 @@ RPC URL to repurpose this fixture as a public signer.
 
 The Containers workflow builds all three images, checks readiness, imports a
 browser recovery key, verifies encrypted exact retrieval and cross-user denial,
-waits for local registration, then restarts the same CI volumes and compares file
-and transaction records. Its cleanup is limited to a generated CI project. This
-is local container evidence, not independent-host acceptance.
+stops the worker before upload and durably queues jobs without contacting the
+chain. It verifies pending jobs with zero attempts, restarts the same CI volumes,
+waits for registration, and restarts again to compare files, transaction hashes,
+attempts and the local account nonce. Each run uses a random project suffix and
+bounded build/browser/readiness/verification/cleanup waits. Cleanup removes only
+that generated fixture's containers/volumes and reports failure. This is local
+container evidence, not independent-host acceptance.

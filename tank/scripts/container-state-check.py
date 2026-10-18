@@ -10,7 +10,9 @@ import urllib.error
 
 ROOT = Path(sys.argv[1])
 MODE = sys.argv[2]
+assert MODE in ("queued", "snapshot", "verify"), "Expected queued, snapshot or verify"
 BASE = "http://localhost:3330"
+DEADLINE = time.monotonic() + 120
 
 
 def browser(filename):
@@ -43,31 +45,40 @@ ids = json.loads(data)["file_ids"]
 assert ids, "Browser fixture uploaded no file"
 records = []
 for file_id in ids:
+    assert time.monotonic() < DEADLINE, "Fixture acceptance deadline exceeded"
     status, ciphertext = get(alice, "/api/tank/files/" + file_id)
     assert status == 200 and hashlib.sha256(ciphertext).hexdigest() == file_id
     assert ciphertext[:8] == b"TANKENC\0", "Fixture upload was not encrypted"
     assert get(bob, "/api/tank/files/" + file_id)[0] == 404
     assert get(bob, "/api/tank/registrations/" + file_id)[0] == 404
-    deadline = time.monotonic() + 90
     while True:
         status, data = get(alice, "/api/tank/registrations/" + file_id)
         assert status == 200
         registration = json.loads(data)
+        if MODE == "queued":
+            assert registration["status"] == "pending", "Job was not durably queued before restart"
+            assert registration["attempts"] == 0, "Stopped worker unexpectedly attempted registration"
+            assert not registration.get("transaction_hash"), "Queued job already has a transaction"
+            break
         if registration["status"] == "registered":
             transaction = registration["transaction_hash"]
             assert len(transaction) == 66 and transaction.startswith("0x")
             break
         assert registration["status"] != "failed", "Local registration failed"
-        assert time.monotonic() < deadline, "Local registration timed out"
+        assert time.monotonic() < DEADLINE, "Local registration timed out"
         time.sleep(1)
-    records.append({"file_id": file_id, "transaction_hash": transaction})
+    records.append({"file_id": file_id, "transaction_hash": registration.get("transaction_hash", ""),
+                    "attempts": registration["attempts"]})
 
 path = ROOT / "accepted-state.json"
-if MODE == "snapshot":
+queued = ROOT / "queued-state.json"
+if MODE == "queued":
+    with queued.open("x") as output:
+        json.dump(ids, output)
+elif MODE == "snapshot":
+    assert ids == json.loads(queued.read_text()), "Restart lost or changed queued files"
     with path.open("x") as output:
         json.dump(records, output)
 elif MODE == "verify":
     assert records == json.loads(path.read_text()), "Restart changed files or registration transactions"
-else:
-    raise SystemExit("Expected snapshot or verify")
-print("PASS: local ciphertext IDs, registered transactions, and user isolation " + MODE)
+print("PASS: local ciphertext IDs, registration state, and user isolation " + MODE)

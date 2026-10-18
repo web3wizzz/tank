@@ -3,8 +3,10 @@
 set -euo pipefail
 set +x
 cd "$(dirname "$0")/.."
-project="tank-ci-${GITHUB_RUN_ID:?CI run ID required}-${GITHUB_RUN_ATTEMPT:-1}"
-[[ "$project" =~ ^tank-ci-[0-9]+-[0-9]+$ ]] || exit 1
+identity="tank-ci-${GITHUB_RUN_ID:?CI run ID required}-${GITHUB_RUN_ATTEMPT:-1}"
+[[ "$identity" =~ ^tank-ci-[0-9]+-[0-9]+$ ]] || exit 1
+# Do not reuse another run's project/volumes, including a repeated local CI ID.
+project="$identity-$(python3 -c 'import secrets; print(secrets.token_hex(6))')"
 umask 077
 fixture=$(mktemp -d)
 envfile="$fixture/local.env"
@@ -19,16 +21,22 @@ cleanup() {
   result=$?
   if ((result != 0)); then
     # Only these synthetic fixture services; Anvil's key banner is redirected.
-    "${compose[@]}" logs --no-color --tail 40 local-chain registration-worker || true
+    timeout 15s "${compose[@]}" logs --no-color --tail 40 local-chain registration-worker || true
   fi
   # The generated project name exclusively owns these ephemeral CI volumes.
-  docker rm -f "${project}-runtime-inventory" >/dev/null 2>&1 || true
-  "${compose[@]}" down --volumes --timeout 30 >/dev/null 2>&1 || true
+  timeout 15s docker rm -f "${project}-runtime-inventory" >/dev/null 2>&1 || true
+  if ! timeout 60s "${compose[@]}" down --volumes --timeout 30 >/dev/null 2>&1; then
+    echo 'CI-owned container cleanup failed; inspect the generated project before retrying.' >&2
+    result=1
+  fi
   rm -rf "$fixture"
+  exit "$result"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 "${compose[@]}" config --quiet
-"${compose[@]}" build coordinator frontend local-chain
+timeout 18m "${compose[@]}" build coordinator frontend local-chain
 docker run --rm --name "${project}-runtime-inventory" --network none --read-only \
   --cap-drop ALL --security-opt no-new-privileges tank-local-frontend node -e '
     const fs = require("node:fs");
@@ -39,6 +47,9 @@ docker run --rm --name "${project}-runtime-inventory" --network none --read-only
   '
 
 "${compose[@]}" up -d --wait --wait-timeout 180
+# Freeze processing before creating the browser upload. The one-shot enqueue
+# command below takes the same process lock and never contacts/signs on a chain.
+"${compose[@]}" stop --timeout 30 registration-worker
 for user in a b; do
   "${compose[@]}" exec -T coordinator tank-access create --db /data/tank.sqlite \
     --label "Container CI $user" --out "/data/acceptance/user-$user.json" >/dev/null
@@ -47,15 +58,25 @@ for user in a b; do
 done
 (
   cd frontend
-  env -u TANK_E2E_UPSTREAM_URL -u TANK_E2E_CODESPACES_AUTH -u TANK_E2E_PILOT \
+  timeout 4m env -u TANK_E2E_UPSTREAM_URL -u TANK_E2E_CODESPACES_AUTH -u TANK_E2E_PILOT \
     -u TANK_E2E_ACCESS_TOOL -u TANK_E2E_REPLACEMENT_FILE -u TANK_E2E_PAGINATION \
     -u TANK_E2E_MAX_FILE_BYTES -u TANK_E2E_EXPECT_REGISTRATION_STATUS -u TANK_E2E_MEASURE \
     TANK_FRONTEND_ORIGIN=http://localhost:3330 \
     TANK_E2E_CREDENTIAL_FILE="$fixture/user-a.json" \
     TANK_E2E_OTHER_CREDENTIAL_FILE="$fixture/user-b.json" npm run test:browser
 )
-python3 scripts/container-state-check.py "$fixture" snapshot
+timeout 45s "${compose[@]}" run --rm --no-deps -T registration-worker tank-registration-worker --enqueue-only
+timeout 150s python3 scripts/container-state-check.py "$fixture" queued
 "${compose[@]}" down --timeout 30
 "${compose[@]}" up -d --wait --wait-timeout 180
-python3 scripts/container-state-check.py "$fixture" verify
-echo 'PASS: disposable container encryption, local registration, restart persistence, and user isolation.'
+timeout 150s python3 scripts/container-state-check.py "$fixture" snapshot
+nonce_before=$(timeout 15s "${compose[@]}" exec -T local-chain arc-cast nonce \
+  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url http://127.0.0.1:8545)
+[[ "$nonce_before" =~ ^[0-9]+$ ]] || exit 1
+"${compose[@]}" down --timeout 30
+"${compose[@]}" up -d --wait --wait-timeout 180
+timeout 150s python3 scripts/container-state-check.py "$fixture" verify
+nonce_after=$(timeout 15s "${compose[@]}" exec -T local-chain arc-cast nonce \
+  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url http://127.0.0.1:8545)
+[[ "$nonce_after" == "$nonce_before" ]] || { echo 'Restart unexpectedly sent another local transaction.' >&2; exit 1; }
+echo 'PASS: disposable container encryption, queued registration recovery, stable nonce/transaction, and user isolation.'
