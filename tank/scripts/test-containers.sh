@@ -40,9 +40,12 @@ timeout 18m "${compose[@]}" build coordinator frontend local-chain
 docker run --rm --name "${project}-runtime-inventory" --network none --read-only \
   --cap-drop ALL --security-opt no-new-privileges tank-local-frontend node -e '
     const fs = require("node:fs");
-    for (const path of ["/usr/local/lib/node_modules/npm", "/usr/local/lib/node_modules/corepack", "/usr/local/bin/npm", "/usr/local/bin/npx", "/usr/local/bin/corepack"]) {
-      if (fs.existsSync(path)) throw new Error("Unnecessary package manager remains in runtime image");
+    for (const path of ["/usr/local/bin/npm", "/usr/local/bin/npx", "/usr/local/bin/corepack", "/usr/local/bin/yarn", "/usr/local/bin/yarnpkg", "/usr/local/bin/pnpm", "/usr/local/bin/pnpx"]) {
+      try { fs.lstatSync(path); } catch (error) { if (error.code === "ENOENT") continue; throw error; }
+      throw new Error("Unnecessary package manager remains in runtime image");
     }
+    if (fs.existsSync("/usr/local/lib/node_modules") && fs.readdirSync("/usr/local/lib/node_modules").length) throw new Error("Unnecessary global tooling remains in runtime image");
+    if (fs.readdirSync("/opt").some(name => name.startsWith("yarn-"))) throw new Error("Inherited Yarn payload remains in runtime image");
     console.log("PASS: final frontend runtime image excludes inherited package managers.");
   '
 

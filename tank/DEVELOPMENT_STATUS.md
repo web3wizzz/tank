@@ -1,5 +1,29 @@
 # Tank Phase 1 development status
 
+### Inherited Yarn runtime removal — 2026-10-18
+
+Final image inspection found unused Yarn 1.22.22 under `/opt` plus `yarn`/`yarnpkg`
+links. The earlier npm/corepack probe missed it; application artifact inventory
+and production-only audit did not cover that inherited payload. Removed Yarn
+from the runtime stage and expanded the actual-image probe to reject manager
+links (including dangling links), Yarn payloads and all global Node tooling.
+The previous image fails this expanded check; the rebuilt image passes under
+read-only/no-network/no-capability execution. The traced application artifact is
+unchanged and its 68-package check remains passing. No dependency downgrade,
+override or audit suppression was applied. Five braces-related development
+entries remain unresolved, and a complete OS vulnerability scan is not claimed.
+
+All five workflows passed for queued-restart milestone `ed7bfc8`, including
+[container CI](https://github.com/web3wizzz/tank/actions/runs/39083528996),
+[Go](https://github.com/web3wizzz/tank/actions/runs/39083528950),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39083528983),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39083529065), and
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39083529169).
+The Yarn fix is a separate image-boundary correction; publication CI must verify
+its functional container acceptance. Domain placement and inactive checkpoint
+startup hardening remain the next focused checkpoints. No private state, public
+transaction, deployed contract or fee budget was touched.
+
 ### Queued container registration restart — 2026-10-18
 
 Closed the review's container coverage gap: CI now stops the local worker before
