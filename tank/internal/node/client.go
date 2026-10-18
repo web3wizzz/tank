@@ -16,9 +16,10 @@ import (
 )
 
 type Client struct {
-	BaseURL string
-	token   string
-	http    *http.Client
+	BaseURL       string
+	failureDomain string
+	token         string
+	http          *http.Client
 }
 
 func NewClient(address, token string) (*Client, error) {

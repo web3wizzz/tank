@@ -7,8 +7,8 @@ availability, disk capacity, database health, or completed chain registration.
 Individual user credentials are rejected. It returns non-cacheable aggregate
 JSON with:
 
-- `upload_ready`: metadata is readable, all three initial-placement nodes report
-  usable capacity, and the configured logical total quota is not exhausted.
+- `upload_ready`: metadata is readable, at least three distinct configured failure
+  domains report usable capacity, and the logical total quota is not exhausted.
 - `degraded`: a configured node is unavailable or a repair job remains outstanding.
 - `metadata`: file count, committed bytes, repair jobs, and registration job counts
   by pending/submitted/failed/registered state.
@@ -33,10 +33,11 @@ caps. Also monitor host free disk/inodes, process restarts, TLS expiry, network
 availability, backup age, and measured restore success outside Tank.
 
 HTTP 200 means the report was obtained; inspect its fields to judge readiness.
-New uploads currently require the original three placement nodes. Degraded
-retrieval can succeed from four verified shards, and automatic repair can move
-stored shards onto an unused spare; that does not automatically replace the
-initial placement list for new uploads. Readiness cannot guarantee that every
+New uploads may select eligible healthy spares while retaining two shards per
+segment in each of three failure domains. See [placement configuration](storage-placement.md).
+Degraded retrieval can succeed from four verified shards, and automatic repair
+can move stored shards onto an eligible spare. Existing manifests retain their
+locations until verified repair. Readiness cannot guarantee that every
 stored file is retrievable: use synthetic encrypted upload/retrieval drills.
 Physical filesystem exhaustion can occur before a configured node quota, so
 capacity reporting is not a substitute for host disk monitoring.

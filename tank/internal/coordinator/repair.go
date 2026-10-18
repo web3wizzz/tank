@@ -88,8 +88,8 @@ func (s *Service) Repair(
 			continue
 		}
 
-		// Preserve the initial placement model: at most two shards
-		// of a segment on any one node.
+		// Preserve placement: at most two replacement shards per segment,
+		// isolated from the failure domains of retained verified shards.
 		if len(missing) > encoding.ParityShards {
 			return 0, fmt.Errorf(
 				"%w: segment %d has %d unavailable shards",
@@ -97,6 +97,13 @@ func (s *Service) Repair(
 			)
 		}
 		for _, record := range segment.Shards {
+			// An unavailable original domain can be replaced by another node in
+			// that domain, but never concentrate shards with retained survivors.
+			if shards[record.Index] != nil {
+				if survivor, ok := s.byURL[record.NodeURL]; ok && survivor.FailureDomain() == target.FailureDomain() {
+					return 0, fmt.Errorf("replacement shares a failure domain with surviving shards for segment %d", segment.Index)
+				}
+			}
 			if record.NodeURL == replacementURL {
 				return 0, fmt.Errorf(
 					"replacement already holds shards for segment %d; choose another node",

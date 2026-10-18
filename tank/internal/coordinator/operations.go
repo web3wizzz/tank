@@ -62,19 +62,19 @@ func (s *Service) operationsHandler(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	workers.Wait()
-	eligibleNodes := 0
+	eligibleDomains := map[string]bool{}
 	degraded := metadataStatus.RepairJobs > 0
-	for _, result := range results {
+	for i, result := range results {
 		if !result.Available {
 			degraded = true
 		}
 		if result.Available && !result.Capacity.AtCapacity {
-			eligibleNodes++
+			eligibleDomains[s.byURL[addresses[i]].FailureDomain()] = true
 		}
 	}
 	// Readiness means a placement may be admitted, not a reservation for a
 	// particular file; upload admission checks actual whole-file headroom.
-	ready := eligibleNodes >= 3
+	ready := len(eligibleDomains) >= 3
 	if s.resourceLimits.TotalStorageBytes > 0 && metadataStatus.CommittedBytes >= s.resourceLimits.TotalStorageBytes {
 		ready = false
 	}

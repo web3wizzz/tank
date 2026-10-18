@@ -33,6 +33,25 @@ func registrationHandler(service *coordinator.Service, store *metadata.Store) (h
 	}
 }
 
+func configuredNodes() ([]*node.Client, error) {
+	required := false
+	switch os.Getenv("TANK_REQUIRE_NODE_FAILURE_DOMAINS") {
+	case "", "false":
+	case "true":
+		required = true
+	default:
+		return nil, errors.New("TANK_REQUIRE_NODE_FAILURE_DOMAINS must be true or false")
+	}
+	clients, err := node.ConfiguredClients(os.Getenv("TANK_NODES"), os.Getenv("TANK_NODE_TOKEN"), os.Getenv("TANK_NODE_CREDENTIALS_FILE"))
+	if err != nil {
+		return nil, err
+	}
+	if err := node.ConfigureFailureDomains(clients, os.Getenv("TANK_NODE_FAILURE_DOMAINS_FILE"), required); err != nil {
+		return nil, err
+	}
+	return clients, nil
+}
+
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -49,7 +68,7 @@ func run() error {
 	}
 	defer store.Close()
 
-	clients, err := node.ConfiguredClients(os.Getenv("TANK_NODES"), os.Getenv("TANK_NODE_TOKEN"), os.Getenv("TANK_NODE_CREDENTIALS_FILE"))
+	clients, err := configuredNodes()
 	if err != nil {
 		return err
 	}

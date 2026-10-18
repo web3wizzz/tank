@@ -17,6 +17,8 @@ class PilotTemplates(unittest.TestCase):
         frontend = (ROOT / 'deploy/pilot/frontend.conf.example').read_text()
         self.assertIn('TANK_COORDINATOR_ADDR=127.0.0.1:8080', coordinator)
         self.assertIn('TANK_NODE_CREDENTIALS_FILE=/etc/tank/node-credentials.json', coordinator)
+        self.assertIn('TANK_NODE_FAILURE_DOMAINS_FILE=/etc/tank/node-failure-domains.json', coordinator)
+        self.assertIn('TANK_REQUIRE_NODE_FAILURE_DOMAINS=true', coordinator)
         self.assertIn('TANK_REGISTRATION_MODE=arc-testnet-external', coordinator)
         self.assertIn('TANK_CHAIN_ID=5042002', coordinator)
         self.assertIn('TANK_REGISTRY_ADDR=0xe1fC5025261af42dfe04788c7a09DAd3ea1EC435', coordinator)

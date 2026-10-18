@@ -10,13 +10,28 @@ project="$identity-$(python3 -c 'import secrets; print(secrets.token_hex(6))')"
 umask 077
 fixture=$(mktemp -d)
 envfile="$fixture/local.env"
-python3 - "$envfile" <<'PY'
-import secrets, sys
+python3 - "$envfile" "$fixture" <<'PY'
+import json, os, secrets, sys
+from pathlib import Path
 with open(sys.argv[1], 'x') as f:
     for name in ('TANK_CONTAINER_NODE_TOKEN', 'TANK_CONTAINER_ADMIN_TOKEN', 'TANK_CONTAINER_SESSION_SECRET'):
         f.write(name + '=' + secrets.token_hex(32) + '\n')
+# Explicitly simulated domains exercise the real startup map in the image.
+root = Path(sys.argv[2]).resolve()
+domains = root / 'node-domains.json'
+with domains.open('x') as f:
+    json.dump({f'http://127.0.0.1:{9100 + index}': f'local-fixture-{index}'
+               for index in range(1, 5)}, f)
+os.chmod(domains, 0o644)  # Nonsecret labels; runtime UID 10001 reads this mount.
+with (root / 'domains.compose.json').open('x') as f:
+    json.dump({'services': {'coordinator': {
+        'environment': {'TANK_REQUIRE_NODE_FAILURE_DOMAINS': 'true',
+                        'TANK_NODE_FAILURE_DOMAINS_FILE': '/config/node-domains.json'},
+        'volumes': [{'type': 'bind', 'source': str(domains),
+                     'target': '/config/node-domains.json', 'read_only': True}]
+    }}}, f)
 PY
-compose=(docker compose --env-file "$envfile" -p "$project" -f compose.yaml -f compose.registration.yaml)
+compose=(docker compose --env-file "$envfile" -p "$project" -f compose.yaml -f compose.registration.yaml -f "$fixture/domains.compose.json")
 cleanup() {
   result=$?
   if ((result != 0)); then

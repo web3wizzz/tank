@@ -14,7 +14,7 @@ import (
 )
 
 func (s *Service) uploadCandidates(ctx context.Context, size int) ([]*node.Client, error) {
-	// Each of three distinct nodes gets two shards per segment. Reserve enough
+	// Each of three distinct failure domains gets two shards per segment. Reserve enough
 	// observed headroom for one complete placement slot across the entire file.
 	var requiredBytes int64
 	segments := 0
@@ -57,27 +57,32 @@ func (s *Service) uploadCandidates(ctx context.Context, size int) ([]*node.Clien
 			candidates = append(candidates, s.placementNodes[i])
 		}
 	}
-	if len(candidates) < 3 {
-		available := 0
-		for _, ok := range responded {
+	domains := map[string]bool{}
+	for _, client := range candidates {
+		domains[client.FailureDomain()] = true
+	}
+	if len(domains) < 3 {
+		availableDomains := map[string]bool{}
+		for i, ok := range responded {
 			if ok {
-				available++
+				availableDomains[s.placementNodes[i].FailureDomain()] = true
 			}
 		}
-		if available >= 3 {
+		if len(availableDomains) >= 3 {
 			return nil, fmt.Errorf("insufficient upload capacity: %w", storage.ErrQuotaExceeded)
 		}
-		return nil, fmt.Errorf("three available nodes with upload capacity required: %w", ErrUnavailable)
+		return nil, fmt.Errorf("three available failure domains with upload capacity required: %w", ErrUnavailable)
 	}
 	return candidates, nil
 }
 
 func placeUploadSegment(ctx context.Context, id string, segment *metadata.Segment, shards [][]byte, candidates []*node.Client) error {
 	used := make(map[string]bool, 3)
+	attempted := map[string]bool{}
 	for slot := 0; slot < 3; slot++ {
 		placed := false
 		for _, client := range candidates {
-			if used[client.BaseURL] {
+			if attempted[client.BaseURL] || used[client.FailureDomain()] {
 				continue
 			}
 			if err := ctx.Err(); err != nil {
@@ -85,7 +90,7 @@ func placeUploadSegment(ctx context.Context, id string, segment *metadata.Segmen
 			}
 			// Treat a failed/ambiguous candidate as unavailable for the remainder
 			// of this segment. Both slot shards must be accepted by one node.
-			used[client.BaseURL] = true
+			attempted[client.BaseURL] = true
 			ok := true
 			for index := slot; index < len(shards); index += 3 {
 				hash := integrity.Digest(shards[index])
@@ -102,6 +107,7 @@ func placeUploadSegment(ctx context.Context, id string, segment *metadata.Segmen
 				segment.Shards[index] = metadata.Shard{Index: index,
 					Hash: integrity.Digest(shards[index]).String(), NodeURL: client.BaseURL}
 			}
+			used[client.FailureDomain()] = true
 			placed = true
 			break
 		}

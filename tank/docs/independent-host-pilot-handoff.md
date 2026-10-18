@@ -1,8 +1,9 @@
 # Independent-host pilot handoff
 
-Status: preparation only, using the completed tooling at
-`1157d38be4e9cda4cc74394d2bb2ed3699b7bf0f`. No hosts are selected or provisioned by
-this document. Commands below are operator instructions for selected, authorized
+Status: preparation only. Select the reviewed full release commit with passing
+checks recorded in [development status](../DEVELOPMENT_STATUS.md); the older
+`1157d38` tooling baseline predates the review fixes. No hosts are selected or
+provisioned by this document. Commands below are operator instructions for selected, authorized
 targets; none were executed as part of this handoff. Remote failure execution and
 restore-candidate activation remain disabled.
 
@@ -53,8 +54,15 @@ origin, unique node token, stable URL and declared independent failure domain.
 `TANK_NODES` is ordered **active 1, active 2, active 3, spare**. Initially each
 segment has four data plus two parity shards, with two shards on each active
 machine. Any four valid shards reconstruct it. One active-machine loss can be
-repaired onto the spare; new uploads still require the original three active
-machines. Spare repair does not automatically change initial placement.
+repaired onto the spare. New uploads choose three eligible healthy configured
+nodes, including the spare, with observed whole-file headroom and two shards per
+declared failure domain. Existing manifests retain their recorded placements.
+Supply `TANK_NODE_FAILURE_DOMAINS_FILE` using the
+[mapping template](../deploy/pilot/node-failure-domains.json.example), and keep
+`TANK_REQUIRE_NODE_FAILURE_DOMAINS=true` for the hosted pilot. Map endpoints on
+the same machine/shared failure boundary to the same label. Labels and distinct
+hostnames cannot prove infrastructure independence; operator inventory and actual
+independent-host acceptance remain required. See [placement behavior](storage-placement.md).
 
 The control machine is a metadata/frontend/signing single point of failure. The
 registry alone cannot recover metadata, credentials, filenames or shards. Current
@@ -155,8 +163,9 @@ state through the existing snapshot procedure, not a raw live `.sqlite` copy.
 | --- | --- |
 | Build environment | `TANK_SITE_URL`: selected frontend root HTTPS URL; `TANK_ALLOW_INDEXING=false` for the pilot. Retain canonical/Open Graph/robots configuration. |
 | `/etc/tank/frontend.conf` ([template](../deploy/pilot/frontend.conf.example)) | `TANK_FRONTEND_ORIGIN` equals the selected frontend origin; `TANK_API_URL` is coordinator HTTPS origin; stable private `TANK_SESSION_SECRET`; retain `TANK_MAX_FILE_BYTES=16777216`, `TANK_FRONTEND_MAX_CONCURRENT_REQUESTS=8`, `TANK_REQUEST_TIMEOUT_SECONDS=120`. No admin, node or signing credentials. |
-| `/etc/tank/coordinator.conf` ([template](../deploy/pilot/coordinator.conf.example)) | `TANK_COORDINATOR_ADDR=127.0.0.1:8080`; `TANK_DATABASE_PATH` points to the authoritative existing coordinator/Arc journal; ordered `TANK_NODES`; `TANK_NODE_CREDENTIALS_FILE`; existing private `TANK_API_TOKEN`; retain all template limits below and public registration identity. No signing/RPC credentials. |
+| `/etc/tank/coordinator.conf` ([template](../deploy/pilot/coordinator.conf.example)) | `TANK_COORDINATOR_ADDR=127.0.0.1:8080`; `TANK_DATABASE_PATH` points to the authoritative existing coordinator/Arc journal; ordered `TANK_NODES`; `TANK_NODE_CREDENTIALS_FILE`; `TANK_NODE_FAILURE_DOMAINS_FILE`; `TANK_REQUIRE_NODE_FAILURE_DOMAINS=true`; existing private `TANK_API_TOKEN`; retain all template limits below and public registration identity. No signing/RPC credentials. |
 | `/etc/tank/node-credentials.json` ([template](../deploy/pilot/node-credentials.json.example)) | Exact canonical node HTTPS URL → its unique private token, matching all four `TANK_NODES` URLs with no trailing slash. Only coordinator/operator custody has the complete map. |
+| `/etc/tank/node-failure-domains.json` ([template](../deploy/pilot/node-failure-domains.json.example)) | Exact same node URL set → operator-declared domain labels, matching the accepted host inventory. Protect configuration from unauthorized writes. Multiple endpoints on one machine/shared failure boundary use one label. |
 | Each `/etc/tank/node.conf` ([template](../deploy/pilot/node.conf.example)) | `TANK_NODE_ADDR=127.0.0.1:9101`; persistent `TANK_NODE_DATA_DIR`; that node's unique `TANK_NODE_TOKEN`; retain `TANK_NODE_STORAGE_BYTES=10737418240`, `TANK_NODE_MAX_FILES=100000`, `TANK_NODE_MAX_CONNECTIONS=64`, `TANK_NODE_MAX_CONCURRENT_REQUESTS=16`, `TANK_REQUEST_TIMEOUT_SECONDS=120`. Never copy another node's token here. |
 | `/etc/tank/registration-worker.conf` ([reference](../deploy/arc-testnet/testnet.conf.example)) | Existing `TANK_ARC_TESTNET_RPC` supplied privately; published `TANK_ARC_TESTNET_SENDER`/`TANK_REGISTRY_ADDR`, `TANK_CHAIN_ID=5042002`; same `TANK_DATABASE_PATH` as coordinator; one stable `TANK_REGISTRATION_LOCK_PATH` (default DB path plus `.registration.lock`); existing `TANK_SIGNER_KEYSTORE_FILE`, `TANK_SIGNER_PASSWORD_FILE`, `TANK_ARC_DEPLOY_JOURNAL`; verified `TANK_ARC_DEPLOY_ARTIFACT`; unchanged gas/fee/total ceilings below. `TANK_ARC_TESTNET_ACCOUNT` is an operator label in the example, not the Go CLI's custody selector. |
 | Proxy / host inventory | Actual DNS names, certificate method/custody/renewal, firewall sources, SSH aliases/ports/host keys, service owners and persistent mounts. Secret DNS/provider authentication stays in private local files. |
@@ -211,7 +220,8 @@ worktree and the public frontend origin (no credentials in these inputs):
 set -euo pipefail
 set +x
 umask 077
-TANK_RELEASE_COMMIT=1157d38be4e9cda4cc74394d2bb2ed3699b7bf0f
+read -r -p 'Verified full release commit (40 lowercase hex characters): ' TANK_RELEASE_COMMIT
+[[ "$TANK_RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
 read -r -p 'New absolute release worktree path: ' TANK_RELEASE_TREE
 read -r -p 'Selected public frontend HTTPS origin: ' TANK_PILOT_ORIGIN
 git worktree add --detach "$TANK_RELEASE_TREE" "$TANK_RELEASE_COMMIT"
@@ -262,7 +272,7 @@ sudo install -o root -g root -m 0644 deploy/pilot/systemd/tank-frontend.service 
 sudo install -o root -g root -m 0644 deploy/pilot/systemd/tank-registration-worker.service /etc/systemd/system/
 sudo install -o root -g root -m 0644 deploy/pilot/systemd/tank-registration-worker.timer /etc/systemd/system/
 # Install completed PRIVATE configs separately; refuse replacement of existing files.
-for TANK_CONFIG_FILE in frontend.conf coordinator.conf registration-worker.conf node-credentials.json; do
+for TANK_CONFIG_FILE in frontend.conf coordinator.conf registration-worker.conf node-credentials.json node-failure-domains.json; do
   sudo test ! -e "/etc/tank/$TANK_CONFIG_FILE"
   sudo test ! -L "/etc/tank/$TANK_CONFIG_FILE"
 done
@@ -271,6 +281,7 @@ sudo install -o root -g tank -m 0640 "$TANK_PRIVATE_CONFIG_DIR/frontend.conf" /e
 sudo install -o root -g tank -m 0640 "$TANK_PRIVATE_CONFIG_DIR/coordinator.conf" /etc/tank/coordinator.conf
 sudo install -o root -g tank -m 0640 "$TANK_PRIVATE_CONFIG_DIR/registration-worker.conf" /etc/tank/registration-worker.conf
 sudo install -o tank -g tank -m 0600 "$TANK_PRIVATE_CONFIG_DIR/node-credentials.json" /etc/tank/node-credentials.json
+sudo install -o root -g tank -m 0640 "$TANK_PRIVATE_CONFIG_DIR/node-failure-domains.json" /etc/tank/node-failure-domains.json
 # Retain authoritative state and encrypted custody separately using the reviewed
 # private handover procedure; never initialize replacement journals here.
 sudo systemd-analyze verify /etc/systemd/system/tank-coordinator.service /etc/systemd/system/tank-frontend.service /etc/systemd/system/tank-registration-worker.service /etc/systemd/system/tank-registration-worker.timer

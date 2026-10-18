@@ -176,3 +176,5 @@ attempts and the local account nonce. Each run uses a random project suffix and
 bounded build/browser/readiness/verification/cleanup waits. Cleanup removes only
 that generated fixture's containers/volumes and reports failure. This is local
 container evidence, not independent-host acceptance.
+CI also supplies a required, read-only map of explicitly synthetic node domains,
+exercising [domain configuration](storage-placement.md) through actual startup.

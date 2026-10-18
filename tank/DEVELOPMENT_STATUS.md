@@ -1,5 +1,43 @@
 # Tank Phase 1 development status
 
+### Declared failure domains in placement — 2026-10-18
+
+New-upload admission and operational readiness now require three healthy distinct
+failure domains, rather than counting endpoints. Slot retries can use another
+healthy node in a failed candidate's domain, but successful slots never share a
+domain. Coding remains 4+2 with two shards per selected domain. Manual and
+automatic repair reject replacements sharing a domain with retained verified
+shards. Existing manifests/file IDs, quotas, authorization and integrity checks
+are preserved; failed repair tests assert unchanged manifest bytes and no writes.
+
+Added bounded exact URL-to-domain configuration and strict required-flag parsing.
+Remote fallback canonicalizes hostname/case/ports; loopback defaults are explicitly
+simulated. The pilot template requires an operator-supplied complete map; malformed,
+duplicate, missing/extra and unsafe-file inputs fail before client mutation.
+[Placement guide](docs/storage-placement.md) and hosted handoff/monitoring/
+troubleshooting now describe spare eligibility and declaration limits. Handoff
+release instructions select a verified full commit instead of pinning an obsolete
+pre-review revision and install the required domain map without overwriting state.
+
+Full node/coordinator/caller race tests and vet pass, including shared-domain
+no-write/readiness rejection, same-domain retry, quota/concurrency and safe repair.
+Four pilot template and 30 hosted-preflight fixture checks pass; changed links
+and bash fences validate. A separate disposable container run with a required
+read-only synthetic domain map passed real encrypted browser/key import/isolation,
+pending queue and two persistent restarts; its generated project was cleaned up.
+Declarations and local fixtures do not prove physical host independence. Changing
+a label does not migrate previously collocated shards. Actual independent host,
+capacity and recovery acceptance remain gates.
+
+All five workflows passed for the separate inherited-Yarn correction `4be1a96`,
+including [containers](https://github.com/web3wizzz/tank/actions/runs/39083811166),
+[Go](https://github.com/web3wizzz/tank/actions/runs/39083811129),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39083811172),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39083811188), and
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39083811169).
+Check publication CI for this domain milestone. Newest-authority recovery remains
+blocked; inactive-checkpoint startup hardening is prepared as a separate follow-up.
+
 ### Inherited Yarn runtime removal — 2026-10-18
 
 Final image inspection found unused Yarn 1.22.22 under `/opt` plus `yarn`/`yarnpkg`

@@ -3,9 +3,11 @@ package coordinator
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -122,6 +124,7 @@ func TestNewUploadUsesSpareAfterOriginalNodeFailure(t *testing.T) {
 
 func TestUploadSkipsNodeWithoutWholeFileHeadroom(t *testing.T) {
 	f := newUploadFixture(t, true, false)
+	configureUploadDomains(t, f, "host-a", "host-b", "host-c", "host-d")
 	m, err := f.service.Tank(context.Background(), bytes.Repeat([]byte("x"), 2049))
 	if err != nil {
 		t.Fatal(err)
@@ -169,6 +172,7 @@ func TestUploadRefusesInsufficientDistinctNodesBeforeWrites(t *testing.T) {
 
 func TestConcurrentNewUploadsUseHealthyPlacement(t *testing.T) {
 	f := newUploadFixture(t, false, false)
+	configureUploadDomains(t, f, "host-a", "host-b", "host-c", "host-d")
 	f.servers[0].Close()
 	var workers sync.WaitGroup
 	results := make(chan error, 8)
@@ -194,5 +198,110 @@ func TestConcurrentNewUploadsUseHealthyPlacement(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func configureUploadDomains(t *testing.T, f uploadFixture, labels ...string) {
+	t.Helper()
+	mapping := map[string]string{}
+	for i, client := range f.service.placementNodes {
+		mapping[client.BaseURL] = labels[i]
+	}
+	body, err := json.Marshal(mapping)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "domains.json")
+	if err = os.WriteFile(path, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = node.ConfigureFailureDomains(f.service.placementNodes, path, true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUploadRequiresHealthyDistinctFailureDomains(t *testing.T) {
+	f := newUploadFixture(t, false, false)
+	configureUploadDomains(t, f, "same-host", "same-host", "second-host", "same-host")
+	if _, err := f.service.Tank(context.Background(), []byte("must not concentrate")); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("shared domains accepted: %v", err)
+	}
+	for _, backend := range f.backends {
+		status, err := backend.Status(context.Background())
+		if err != nil || status.UsedFiles != 0 {
+			t.Fatal("rejected placement wrote shards")
+		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "/ops/status", nil)
+	response := httptest.NewRecorder()
+	f.service.operationsHandler(response, request)
+	var status struct {
+		UploadReady bool `json:"upload_ready"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil || status.UploadReady {
+		t.Fatal("readiness counted endpoints rather than domains", err)
+	}
+}
+
+func TestUploadRetriesAlternateInFailedCandidateDomain(t *testing.T) {
+	f := newUploadFixture(t, false, true)
+	configureUploadDomains(t, f, "domain-a", "domain-b", "domain-c", "domain-a")
+	data := bytes.Repeat([]byte("retry domain"), 70)
+	m, err := f.service.Tank(context.Background(), data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkUploadPlacement(t, m, f.servers[0].URL)
+	for _, segment := range m.Segments {
+		counts := map[string]int{}
+		for _, shard := range segment.Shards {
+			counts[f.service.byURL[shard.NodeURL].FailureDomain()]++
+		}
+		if len(counts) != 3 {
+			t.Fatal("placement collapsed domains")
+		}
+		for _, count := range counts {
+			if count != 2 {
+				t.Fatal("more than two shards in domain")
+			}
+		}
+	}
+	got, err := f.service.Retrieve(context.Background(), m.FileID)
+	if err != nil || !bytes.Equal(got, data) {
+		t.Fatal("retry changed bytes", err)
+	}
+}
+
+func TestRepairRejectsDomainSharedWithSurvivingShards(t *testing.T) {
+	f := newUploadFixture(t, false, false)
+	configureUploadDomains(t, f, "domain-a", "domain-b", "domain-c", "domain-b")
+	m, err := f.service.Tank(context.Background(), bytes.Repeat([]byte("repair"), 100))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.servers[0].Close()
+	if _, err = f.service.Repair(context.Background(), m.FileID, f.servers[3].URL); err == nil {
+		t.Fatal("repair concentrated surviving failure domain")
+	}
+	if _, err = f.service.repairUsingSpare(context.Background(), m.FileID); err == nil {
+		t.Fatal("maintenance concentrated surviving failure domain")
+	}
+	after, err := f.store.Load(context.Background(), m.FileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeJSON, _ := json.Marshal(m)
+	afterJSON, _ := json.Marshal(after)
+	if !bytes.Equal(beforeJSON, afterJSON) {
+		t.Fatal("rejected repair modified manifest")
+	}
+	status, err := f.backends[3].Status(context.Background())
+	if err != nil || status.UsedFiles != 0 {
+		t.Fatal("rejected repair wrote replacement shards")
+	}
+	// Replacing the lost domain by another node in that domain is safe.
+	configureUploadDomains(t, f, "domain-a", "domain-b", "domain-c", "domain-a")
+	if count, err := f.service.Repair(context.Background(), m.FileID, f.servers[3].URL); err != nil || count != 2 {
+		t.Fatalf("safe same-lost-domain replacement: %d, %v", count, err)
 	}
 }
