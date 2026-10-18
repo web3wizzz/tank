@@ -40,7 +40,7 @@ func saveIssuedCredential(
 	if output == "" {
 		return key, errors.New("--out is required")
 	}
-	if err := os.MkdirAll(filepath.Dir(output), 0700); err != nil {
+	if err := prepareCredentialDirectory(filepath.Dir(output)); err != nil {
 		return key, err
 	}
 
@@ -90,6 +90,9 @@ func saveIssuedCredential(
 		return key, err
 	}
 	if err := file.Close(); err != nil {
+		return key, err
+	}
+	if err := syncCredentialDirectory(filepath.Dir(output)); err != nil {
 		return key, err
 	}
 

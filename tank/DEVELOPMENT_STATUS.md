@@ -1,5 +1,23 @@
 # Tank Phase 1 development status
 
+### Credential publication durability — 2026-10-18
+
+Credential export previously flushed only file contents, then reported success
+without syncing its directory entry. Publication now syncs newly created parent
+directories through their first existing ancestor before issuing a credential,
+and syncs the final containing directory after the private file. Existing output
+and symlink refusal, one-time token handling and automatic private parent creation
+are retained. Parents must stay under exclusive operator control; underlying
+filesystem blocking/durability is still a backend/operator dependency.
+
+A regression moves an operation-owned nested parent after issuance: the original
+code falsely acknowledged success for the vanished output path. The fixed path
+fails and revokes only the newly issued credential; the original credential stays
+usable and the moved original artifact is preserved. This is a local publication
+failure test, not a power-loss or independent-host durability measurement.
+Access-command race suite, vet and all command builds pass; scoped review found
+no blocking defect under the documented exclusive-parent precondition.
+
 ### Administrative existing-authority guard — 2026-10-18
 
 Reproduced silent database initialization by `tank-access users`, `keys`, `issue`
@@ -12,6 +30,13 @@ Access/metadata race suites, vet and command builds pass. Scoped review found no
 blocking defect; publication CI is checked after push.
 This guard does not authenticate an initialized stale/wrong volume or permit
 lost-authority recovery; original signing and restore gates remain unchanged.
+
+All five workflows passed for `e2cc067`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39116771575),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39116771537),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39116771543),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39116771526), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39116771539).
 
 ### Recovery mutation inventory and publication checkpoint — 2026-10-18
 

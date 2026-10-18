@@ -13,6 +13,10 @@ go build -o bin/tank-access ./cmd/tank-access
 
 The default database is `data/local-demo/tank.sqlite`. Set `TANK_DATABASE_PATH`
 or pass `--db PATH` for another database. Use the same database as the coordinator.
+`users`, `keys`, `issue` and `revoke` require that database to exist and be
+initialized; they never bootstrap an empty replacement. Only explicit `create`
+initializes a new database. Do not use bootstrap to replace lost authority during
+recovery; preserve the original state and the restore/signing gates.
 
 ## Create a new user
 
@@ -23,6 +27,11 @@ or pass `--db PATH` for another database. Use the same database as the coordinat
 This creates a new identity and its first 30-day credential. The raw token is
 written only to the new mode-0600 private file. Existing destinations and symlinks
 are refused. The database stores a SHA-256 token hash, not the raw token.
+The tool flushes newly created parent directories before issuing the credential,
+then flushes its file and containing directory before reporting success. Use a
+private parent under exclusive operator control throughout publication. Filesystem
+durability and blocking I/O behavior still depend on the selected local disk or
+mount; this is not an off-machine credential backup.
 
 Creating another user with the same label does not preserve file permissions;
 labels are not identity identifiers.

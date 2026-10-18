@@ -198,3 +198,46 @@ func TestExistingAuthorityCommandsPreserveUninitializedDatabase(t *testing.T) {
 		})
 	}
 }
+
+func TestCredentialPublicationFailureRevokesOnlyNewKey(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	store, err := metadata.Open(ctx, filepath.Join(dir, "tank.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	original, originalToken, err := store.CreateAccessKey(ctx, "synthetic publisher")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := filepath.Join(dir, "new", "nested", "credentials")
+	moved := filepath.Join(dir, "moved-credentials")
+	var replacement metadata.AccessKey
+	var replacementToken string
+	_, err = saveIssuedCredential(ctx, store, filepath.Join(parent, "new.json"), func(ctx context.Context) (metadata.AccessKey, string, error) {
+		var issueErr error
+		replacement, replacementToken, issueErr = store.IssueAccessKey(ctx, original.PrincipalID)
+		if issueErr != nil {
+			return replacement, replacementToken, issueErr
+		}
+		// The descriptor remains writable, but the requested publication path
+		// disappears. Publication must not acknowledge before directory sync.
+		if err := os.Rename(parent, moved); err != nil {
+			t.Fatal(err)
+		}
+		return replacement, replacementToken, nil
+	})
+	if err == nil {
+		t.Fatal("credential publication acknowledged without its parent directory")
+	}
+	if _, err := store.AuthenticateAccessKey(ctx, replacementToken); !errors.Is(err, metadata.ErrUnauthorized) {
+		t.Fatal("failed publication left the new credential usable")
+	}
+	if _, err := store.AuthenticateAccessKey(ctx, originalToken); err != nil {
+		t.Fatal("failed publication revoked the original credential")
+	}
+	if _, err := os.Lstat(filepath.Join(moved, "new.json")); err != nil {
+		t.Fatal("moved original artifact was deleted", err)
+	}
+}
