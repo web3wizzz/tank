@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -91,7 +92,23 @@ func validFileID(id string) bool {
 }
 
 func decodeJSON(reader io.Reader, target any) error {
-	return json.NewDecoder(io.LimitReader(reader, 8<<20)).Decode(target)
+	const maxJSONBytes = 8 << 20
+	body, err := io.ReadAll(io.LimitReader(reader, maxJSONBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > maxJSONBytes {
+		return fmt.Errorf("API JSON response exceeds size limit")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return fmt.Errorf("API response must contain exactly one JSON value")
+	}
+	return nil
 }
 
 // saveVerified publishes the file only after checking its size and hash.

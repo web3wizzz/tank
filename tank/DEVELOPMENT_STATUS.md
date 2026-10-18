@@ -1,5 +1,28 @@
 # Tank Phase 1 development status
 
+### CLI input boundaries — 2026-10-18
+
+Reproduced indefinite FIFO-open hangs in raw/encrypted uploads and recovery-key
+imports: the previous regular-file check happened only after a blocking open.
+A shared nonblocking descriptor-open helper now verifies file type before any read,
+networking or output publication. Regular files and regular-file symlinks retain
+existing behavior and limits; direct/symlinked pipes and directories are refused.
+
+CLI race suite, vet and command builds pass. Disposable subprocess regressions use
+five-second deadlines and no FIFO writer, and prove all three command paths reject
+both direct/symlinked FIFOs without requests or output/recovery publication. The
+original code failed all three paths; fixed tests pass. Recovery's 2048-byte bound,
+ordinary symlinks, encrypted round trips and no-overwrite behavior remain checked.
+Scoped review found no blocking issue. Filesystem-device availability is still an
+operator responsibility; nonblocking open does not bound stalled regular-file I/O.
+
+Also reproduced false upload-success output when the first JSON value was followed
+by another value, garbage or an oversized suffix. CLI response decoding now matches
+the Go SDK's existing 8 MiB full-body bound and exactly-one-value rule, accepting
+ordinary trailing whitespace. CLI parser and real HTTP upload regressions first
+failed on the old decoder and now pass. The CLI race suite, vet and command builds
+pass with both boundary fixes; no valid raw-byte API or file-ID semantics changed.
+
 ### Fail-closed node capacity decoding — 2026-10-18
 
 Reproduced two report-admission defects: JSON `null` counters silently became zero
@@ -16,6 +39,13 @@ degraded with malformed reports, a healthy spare supports exact-byte retrieval,
 and fewer than three eligible domains refuses admission before shard/manifest
 writes. Scoped review identified the alias case and it was fixed before publication.
 No coding, file-ID, manifest, ownership or signer behavior changed.
+
+All five workflows passed for `a10785a`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39085658177),
+[contracts](https://github.com/web3wizzz/tank/actions/runs/39085658176),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39085658217),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39085658175), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39085658139).
 
 ### Offline authority protocol foundation — 2026-10-18
 

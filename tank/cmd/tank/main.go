@@ -73,18 +73,13 @@ func rootCommand() *cobra.Command {
 			if encrypt && recoveryOut == "" {
 				return fmt.Errorf("--encrypt requires --recovery-out")
 			}
-			file, err := os.Open(args[0])
+			file, info, err := openRegularInput(args[0])
 			if err != nil {
 				return err
 			}
 			defer file.Close()
 
-			info, err := file.Stat()
-			if err != nil {
-				return err
-			}
-			if !info.Mode().IsRegular() ||
-				info.Size() < 1 || info.Size() > maxFileBytes {
+			if info.Size() < 1 || info.Size() > maxFileBytes {
 				return fmt.Errorf("input must be a regular file containing 1 byte to 16 MiB")
 			}
 

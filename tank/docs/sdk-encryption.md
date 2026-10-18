@@ -29,6 +29,11 @@ returned secret records. Keep recovery records in memory only as long as needed.
 
 ## CLI
 
+Upload inputs and recovery imports must be regular files. The CLI rejects named
+pipes (including symlinks to pipes) before networking without waiting for a writer;
+symlinks to ordinary regular files remain supported. This check does not promise
+bounded I/O from a stalled disk or network filesystem.
+
 Supply the existing user token through `TANK_API_TOKEN` in your private process
 environment. Keep the recovery path on a private local filesystem.
 

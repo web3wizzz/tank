@@ -36,16 +36,12 @@ func savePrivateNew(data []byte, destination string) error {
 }
 
 func readRecoveryFile(path string) ([]byte, error) {
-	file, err := os.Open(path)
+	file, info, err := openRegularInput(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() || info.Size() > 2048 {
+	if info.Size() > 2048 {
 		return nil, errors.New("invalid recovery file")
 	}
 	data, err := io.ReadAll(io.LimitReader(file, 2049))
