@@ -82,8 +82,10 @@ history. Toy replay after losing local state preserves a synthetic revocation,
 permanent reservation and immutable byte string; it is not a production metadata
 or signer recovery test, disk durability test or independent-host measurement.
 
-Next: inventory and cover **all** metadata mutation paths; define complete-state
-bootstrap/digest and deterministic semantic command replay; implement the custody
+The [current mutation inventory](authority-mutation-map.md) maps all eleven tables,
+22 application mutators, transaction boundaries and existing signing/history gaps.
+Next: cover those paths; define complete-state bootstrap/digest and deterministic
+semantic command replay; implement the custody
 intent/byte-persistence boundary; test crashes between remote commit, local apply
 and response. Initial migration must import existing historical bytes, permanent
 reservations and revocations without resetting authority. Do not wire a partial

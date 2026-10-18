@@ -142,7 +142,9 @@ all mutation paths exist, host-loss recovery remains signing-blocked.
 The isolated [authority protocol contract](authority-journal-protocol.md) now defines
 an unwired Go interface, versioned integrity verification and a test-only synthetic
 fault backend. It has no durable backend, authenticated fresh-tip transport, metadata
-writer integration or custody. Next is coverage of all metadata mutation paths and
+writer integration or custody. The [mutation coverage map](authority-mutation-map.md)
+records the current table/method boundaries, nondeterminism and historical-byte gap.
+Next is coverage of all metadata mutation paths and
 signer-side durable intent/bytes protocol. A production backend and custody epoch enforcement need
 selected independent infrastructure and operator access. Schema compatibility,
 initial authoritative bootstrap from existing private journals, and import of all
