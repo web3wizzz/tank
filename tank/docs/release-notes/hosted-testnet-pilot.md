@@ -9,8 +9,12 @@ runs on local owned processes; no independently hosted pilot is claimed.
 
 - Browser-side encryption and filename protection, recovery-key export/import,
   integrity-checked retrieval, user isolation, and a responsive workspace.
-- Four-data/two-parity shard encoding, three-node initial placement, spare repair,
-  authenticated operations reports, and private SQLite backup/restore tooling.
+- [Opt-in CLI/SDK encryption](../sdk-encryption.md) with the browser-compatible
+  envelope, private recovery export/import and real Go/TypeScript/browser
+  interoperability checks. Raw-byte APIs and stored-byte IDs retain their semantics.
+- Four-data/two-parity shard encoding, healthy-spare uploads across three declared
+  failure domains, verified spare repair, authenticated operations reports and
+  [replicated private SQLite checkpoints](../signing-state-recovery.md).
 - Arc Testnet registry and public signed-registration evidence at
   [`arc-testnet-acceptance.md`](../arc-testnet-acceptance.md).
 - Hardened systemd templates for coordinator, node, frontend, and a bounded Arc
@@ -21,8 +25,9 @@ runs on local owned processes; no independently hosted pilot is claimed.
   canonical receipts/readback, exact reservations and nonce ownership. Restore
   candidates remain inactive; remote failure/activation execution stays disabled.
 - Correlated browser control evidence and phase ordering, with credentials and
-  recovery keys excluded. The local status fixture stays `not_queued` and supplies
-  no fabricated public-chain confirmation.
+  recovery keys excluded. The chainless fixture stays `not_queued`; opt-in local
+  container CI verifies queued/restart registration on chain 31337, exact encrypted
+  recovery, isolation and persistence. Neither provides public Arc signing proof.
 
 ## Verification
 

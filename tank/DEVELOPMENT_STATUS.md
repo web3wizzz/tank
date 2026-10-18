@@ -1,5 +1,43 @@
 # Tank Phase 1 development status
 
+### Current review continuation checkpoint — 2026-10-18
+
+Reused the previously published review branch, then published focused follow-ups
+for replicated checkpoints, queued container restarts, inherited Yarn removal,
+declared failure domains and inactive database startup. Scoped final code review
+found no further actionable defects in the last three code milestones. This is
+implementation/test evidence, not an independent security audit.
+
+| Requested area | Implemented and checked | Remaining limitation or gate |
+| --- | --- | --- |
+| Dependency exposure | Five npm entries traced to one braces lint advisory; production frontend/SDK audits zero; standalone image rejects lint/build tooling, npm/corepack/Yarn and global Node packages | Five development entries remain unresolved; no patched release/compatible audit fix identified, no forced downgrade/suppression; no full OS vulnerability scan |
+| Disaster recovery | One consistent snapshot replicated into private verified inactive v2 bundles; primary-loss security records, canonical signed history and permanent budgets tested; writable startup refuses marked copies/unsafe aliases | Operator-provisioned independent off-machine custody and authenticated newest-tip authority are absent; missing newest authority stays fail-closed |
+| New uploads | Healthy spares, whole-file observed headroom, concurrent quota enforcement and three declared domains; safe repair, unchanged manifests, integrity and isolation checked | Labels do not establish physical independence; no distributed capacity reservation or orphan cleanup |
+| Container registration | Explicit opt-in chain-31337 fixture; same-host SQLite/exclusive worker lane; queued jobs survive restart; hashes/attempts/nonce stable afterward | Public Arc signing stays a separate explicit guarded hosted operation, not a fixture RPC substitution |
+| Container CI | Three images, readiness, encrypted exact retrieval/name/key import, user isolation, queued recovery and persistent restarts pass | Single-machine fixture evidence cannot establish host-loss availability |
+| CLI/SDK encryption | Opt-in CLI flags and Go/TypeScript helpers; actual Go/TS/browser compatibility and recovery import/export; raw APIs/stored-byte IDs preserved | SDK callers own durable private key persistence; lost recovery keys remain unrecoverable |
+| Coordinator availability | Existing-authority and inactive-startup guards; concrete manual promotion/consensus/fencing design | One control host remains a failure point; no shared authority, split-brain prevention or cross-host signer fencing, so no automatic failover |
+| Hosted pilot | Explicit host/access/TLS/monitoring/backup/capacity gates retained in handoff and runbooks | No selected inventory/access, operational TLS/monitoring, independently proven off-machine backups or actual hosted capacity/failure acceptance supplied |
+
+All five workflows passed for final code checkpoint `5392c42`:
+[Go](https://github.com/web3wizzz/tank/actions/runs/39084397855),
+[contracts/Arc-local](https://github.com/web3wizzz/tank/actions/runs/39084397617),
+[SDK](https://github.com/web3wizzz/tank/actions/runs/39084397647),
+[browser](https://github.com/web3wizzz/tank/actions/runs/39084397603), and
+[containers](https://github.com/web3wizzz/tank/actions/runs/39084397615).
+
+Final documentation aligns README, browser guidance and unreleased notes with
+opt-in encryption and healthy-spare behavior. SDK persistence examples now flush
+the containing directory as well as the private recovery file before upload;
+platform/backend durability remains the caller's responsibility. Go example
+compilation, Node syntax checks, changed documentation links and bash fences pass
+without executing uploads. No original data/journals, public deployment, signer
+custody or fee budget was changed; no mainnet/paid infrastructure was used.
+See [recovery requirements](docs/signing-state-recovery.md) and
+[hosted handoff](docs/independent-host-pilot-handoff.md) for the remaining records
+and owner inputs. Publication checks on the documentation checkpoint accompany
+this evidence; do not infer independent-host acceptance from passing local CI.
+
 ### Inactive checkpoint startup enforcement — 2026-10-18
 
 New replicated bundles use format v2 and durably publish an inactive marker

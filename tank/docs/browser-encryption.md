@@ -11,7 +11,7 @@ New files tanked from the workspace are encrypted with Web Crypto AES-256-GCM be
 
 The recovery file contains the unencrypted secret key. It is never submitted to the API and is not stored in browser localStorage. Keep it in a private, backed-up location. Losing it prevents recovery. Someone with both the encrypted data and key can decrypt it; signing out does not invalidate a downloaded recovery key. Browser memory clearance is best effort, not guaranteed. The application cannot confirm the recovery file was actually saved.
 
-Older files and direct CLI/SDK tanking remain unencrypted. This feature does not migrate them. To encrypt an older file, retrieve it and tank it again using the browser flow. Backend authentication and file ownership remain required.
+Older raw files remain unencrypted, and raw CLI/SDK APIs preserve their default byte behavior. The CLI and SDKs also offer [opt-in compatible encryption and recovery](sdk-encryption.md). Nothing migrates older files automatically: retrieve and encrypt/reupload them to create a new ciphertext ID. Backend authentication and file ownership remain required.
 
 ## Format v1
 

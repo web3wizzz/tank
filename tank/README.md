@@ -66,13 +66,15 @@ whole files and uses centralized metadata. Local nodes share development
 credentials. Audits download and verify shards.
 
 Automatic repair requires enough surviving shards and an unused
-configured replacement node. New files currently require all three
-initial storage nodes to accept their assigned shards.
+configured replacement node in a safe failure domain. New files select three
+eligible healthy domains, including spares, with whole-file capacity checks;
+see [placement configuration and limitations](docs/storage-placement.md).
 
 Browser encryption, individual user authorization, and local blockchain registration
 are implemented. Signed Arc Testnet deployment and registration are verified in
 [Arc acceptance](docs/arc-testnet-acceptance.md). CLI/SDK uploads remain unencrypted
-by default. Payments and production durability remain planned; permanent retention
+by default; [compatible opt-in helpers and CLI flags](docs/sdk-encryption.md)
+provide recovery-key export/import. Payments and production durability remain planned; permanent retention
 is not guaranteed. The [independent-host pilot handoff](docs/independent-host-pilot-handoff.md)
 documents hosting inputs and acceptance gates; no hosted storage pilot is yet verified.
 

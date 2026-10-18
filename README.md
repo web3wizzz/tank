@@ -25,7 +25,7 @@ For users, the workflow is simple:
 
 **Tank a file → Keep its file ID and browser recovery key → Retrieve it later.**
 
-For developers, the same workflow is available through a Go CLI, HTTP API, and Go/TypeScript SDKs. The browser workspace encrypts file contents and the original filename before upload. Keep the downloaded recovery key privately; it is required for decryption.
+For developers, the same workflow is available through a Go CLI, HTTP API, and Go/TypeScript SDKs. The browser workspace encrypts file contents and the original filename before upload. The CLI and SDKs offer [opt-in compatible encryption](tank/docs/sdk-encryption.md); raw-byte APIs preserve the supplied bytes. Keep the exported recovery key privately; it is required for decryption.
 
 **“Store Once, Retrieve Forever” is our vision.** The current release is a local development MVP. File availability depends on storage nodes and metadata remaining available; indefinite retention is not yet guaranteed.
 
@@ -285,8 +285,10 @@ using its non-secret `id` from the private JSON file:
 ./bin/tank-access revoke --key-id YOUR_CREDENTIAL_ID
 ```
 
-Tanking through CLI and SDK remains unencrypted unless your application encrypts
-the bytes first. The browser recovery key does not bypass file authorization.
+CLI tanking is raw by default; `--encrypt --recovery-out` opts in to local
+encryption. SDK callers explicitly use the encryption helpers before uploading.
+See [CLI/SDK encryption and recovery](tank/docs/sdk-encryption.md) for export/import
+and the automatic-encryption interface table. Recovery keys do not bypass file authorization.
 
 Tank a file from the Go project directory using the administrator token:
 

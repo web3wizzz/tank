@@ -56,7 +56,9 @@ is validated but does not choose or replace your output path.
 `EncryptFile(data, filename)` returns ciphertext and a `Recovery` record;
 `ExportRecovery(record)` and `ParseRecovery(jsonBytes)` export/import its JSON.
 `DecryptFile(stored, record)` returns authenticated plaintext and the original
-filename. These helpers are local and make no network calls.
+filename. These helpers are local and make no network calls. The example uses
+standard-library `os` and `path/filepath` imports and a private pre-existing
+recovery directory.
 
 ```go
 stored, recovery, err := tank.EncryptFile(data, "report.pdf")
@@ -69,6 +71,12 @@ if err != nil { return err }
 if _, err = f.Write(secret); err != nil { f.Close(); return err }
 if err = f.Sync(); err != nil { f.Close(); return err }
 if err = f.Close(); err != nil { return err }
+directory, err := os.Open(filepath.Dir(recoveryPath))
+if err != nil { return err }
+syncErr := directory.Sync()
+closeErr := directory.Close()
+if syncErr != nil { return syncErr }
+if closeErr != nil { return closeErr }
 manifest, err := client.Tank(ctx, stored)
 if err != nil { return err } // Keep the private recovery file.
 _ = manifest
@@ -99,6 +107,7 @@ validated JSON. All are exported from the SDK entry point.
 ```js
 import { Tank, encryptFile, decryptFile, parseRecovery, exportRecovery } from "./sdk-ts/dist/index.js";
 import { open } from "node:fs/promises";
+import { dirname } from "node:path";
 
 const client = new Tank({ baseURL, token: process.env.TANK_USER_TOKEN });
 const encrypted = await encryptFile(Uint8Array.from(data).buffer, "report.pdf");
@@ -107,6 +116,8 @@ try {
   await handle.writeFile(exportRecovery(encrypted.recovery), "utf8");
   await handle.sync();
 } finally { await handle.close(); }
+const directory = await open(dirname(recoveryPath), "r");
+try { await directory.sync(); } finally { await directory.close(); }
 const manifest = await client.tank(new Uint8Array(encrypted.bytes));
 // Keep the recovery file even if an upload fails or its result is uncertain.
 ```
@@ -124,6 +135,11 @@ const restored = await decryptFile(Uint8Array.from(stored).buffer, recovery);
 Do not pass `{ filename: originalName }` to `client.tank` for an encrypted file:
 that option sends plaintext metadata. The original filename already travels
 inside the authenticated encrypted payload.
+
+These file-persistence examples target systems supporting file and directory
+`fsync`, such as the pilot's local Linux filesystem. If the platform/backend
+requires another durability mechanism, use it before uploading. SDK encryption
+helpers return key material to the caller; they do not persist or back it up.
 
 ## Format and limits
 
