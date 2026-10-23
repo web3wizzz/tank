@@ -57,6 +57,7 @@ jobs:
         run: |
           bash -n scripts/*.sh
           python3 scripts/test-local-env.py
+          python3 -W error::ResourceWarning scripts/test-container-deadlines.py
           python3 scripts/test-pilot-templates.py
           python3 scripts/test-pilot-hosted-tests.py
           python3 -W error::ResourceWarning scripts/test-pilot-restore.py

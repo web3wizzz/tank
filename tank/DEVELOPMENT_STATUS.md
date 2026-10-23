@@ -1,5 +1,31 @@
 # Tank Phase 1 development status
 
+### Bound stalled Docker operations and cleanup — 2026-10-23
+
+`scripts/test-containers.sh` now wraps every Docker/Compose operation, browser
+acceptance and Python state check in a wall-clock deadline with a five-second
+forced-termination grace. Compose readiness/graceful-stop settings alone do not
+bound daemon/API stalls. Printed project identity and cleanup errors identify only
+the generated CI project; no global cleanup/prune is introduced. A terminated
+client cannot promise daemon-side cleanup, so leftover-resource inspection after
+daemon recovery remains an explicit operational limitation.
+
+The new Docker-free CI regression covers normal fixture flow and 13 stalled
+operation sites whose synthetic executables ignore SIGTERM. It asserts bounded
+failure, cleanup ownership and removal of private generated fixture files. A
+negative control deliberately breaks forced termination and verifies the harness
+also kills its exact owned child and bounds pipe/process collection despite GNU
+timeout's separate process groups. All three tests pass; the pre-fix config stall
+was rejected by the regression. Shell syntax and scoped review pass. Real local
+image/readiness, encrypted retrieval/recovery import, isolation, queued
+registration and two persistent restart/nonce checks pass with the new wrapper.
+Verified no containers, volumes or network remain for its generated project
+`tank-ci-2026102302-1-a1f9574b5c43`. This remains simulated single-host evidence.
+
+All five workflows passed for `3e047b1`, resolving the dependency milestone's
+pre-existing parallel contract-test failure. The complete-state digest milestone
+was pushed as `2967b25`; all five publication workflows passed for it as well.
+
 ### Complete logical-state fingerprint for recovery development — 2026-10-23
 
 Added an unwired, read-only schema-8 digest covering all eleven authoritative

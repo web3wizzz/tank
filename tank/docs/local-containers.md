@@ -178,3 +178,19 @@ that generated fixture's containers/volumes and reports failure. This is local
 container evidence, not independent-host acceptance.
 CI also supplies a required, read-only map of explicitly synthetic node domains,
 exercising [domain configuration](storage-placement.md) through actual startup.
+
+Every Docker/Compose call in `scripts/test-containers.sh` has a wall-clock bound,
+including configuration, inventory, credential exec/copy and restart/cleanup.
+The helper uses GNU `timeout` with a five-second forced-termination grace; a
+readiness or graceful-stop timeout alone does not bound a stalled Docker daemon.
+The Go workflow tests normal flow and TERM-ignoring daemon/cleanup stalls using
+injected synthetic executables, without accessing Docker or real credentials.
+The test harness also bounds collection of children in separate timeout groups.
+
+The generated CI project name is printed before operations and in cleanup-failure
+diagnostics. Terminating a client cannot guarantee that a daemon stopped its
+operation or removed resources. If cleanup fails or the runner is forcibly killed,
+inspect **only that printed project** and its exact runtime-inventory container
+after daemon recovery; never use a global prune or remove another project's data.
+Local synthetic deadlines do not establish hosted daemon availability or storage
+durability.
