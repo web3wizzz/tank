@@ -12,6 +12,9 @@ Version 1 binds an independently trusted genesis anchor: stream ID, schema versi
 release digest and digest of the **complete** initial authoritative state. Existing
 registration-only `RestoreSnapshot` is insufficient for that initial state: identity,
 credentials/revocations, grants, ownership and file metadata are also required.
+An offline [complete-state digest](complete-state-digest.md) covers that schema-8
+inventory with a separate pinned binary format; no journal or runtime caller
+uses it yet. Its presence does not authenticate a fresh tip or authorize recovery.
 
 Each immutable request binds that anchor, exact preceding tip (sequence, epoch,
 digest), writer epoch, unique operation ID, mutation kind, complete private payload,

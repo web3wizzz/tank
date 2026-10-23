@@ -6,6 +6,11 @@ or permission to recover. All current production mutations still commit locally
 in SQLite. No authority adapter is wired, no database is migrated by this document,
 and loss of newest authoritative state remains signing-blocked.
 
+The offline [complete-state digest](complete-state-digest.md) now implements a
+versioned fingerprint of all eleven tables in one read-only snapshot. It is not
+wired to genesis, production writers, restore activation or signing and does not
+establish a fresh independent authority tip.
+
 ## Current durable state
 
 The schema contains eleven application tables. A bootstrap baseline must include

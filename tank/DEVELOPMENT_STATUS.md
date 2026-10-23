@@ -1,5 +1,30 @@
 # Tank Phase 1 development status
 
+### Complete logical-state fingerprint for recovery development — 2026-10-23
+
+Added an unwired, read-only schema-8 digest covering all eleven authoritative
+tables, exact reviewed DDL, typed cells and duplicate rows. It uses one SQLite
+snapshot, including committed WAL, and remains stable across row insertion order
+and physical database rewrites. NULL, binary bytes, Unicode/NUL text and exact
+decimal strings have explicit versioned framing. Unsupported schema/encoding,
+invalid text, broken references, unexpected storage classes and bounded-resource
+failures yield no usable digest. Limits apply to 100,000 rows per table, 1 MiB
+per cell and 64 MiB aggregate payload; SQLite/backend resource limits are explicit.
+
+Full Go race checks, vet and command builds pass; final encoding regressions and
+the focused metadata race suite pass. Tests cover every table, concurrent atomic
+commits, WAL-only changes, bounds, cancellation and inactive checkpoint/gate byte
+preservation. An independent Python encoder matches empty and populated synthetic
+vectors. Scoped read-only review found no blocking correctness/format issue.
+No production caller, migration, journal change, private-state read, controller
+activation or signing change is introduced. The existing controller digest keeps
+its format. This supplies a tested state-format building block, not a fresh tip,
+historical archive, semantic validation, independent backup or authority to sign.
+Newest-authority loss stays blocked even with matching chain nonce. Next recovery
+work remains semantic commands/trusted evaluation time, atomic applied-sequence
+replay, durable independent transport and enforceable custody/writer fencing.
+See the [format, evidence and limitations](docs/complete-state-digest.md).
+
 ### Serialize process-environment deployment fixtures — 2026-10-23
 
 Dependency update `5c4204f` passed Go, browser (including the new production
