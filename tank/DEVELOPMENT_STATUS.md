@@ -1,5 +1,33 @@
 # Tank Phase 1 development status
 
+### Compatible production dependency security update — 2026-10-23
+
+Inspection reused clean `6c93409`, no open PRs and five passing workflows. A fresh
+audit found newly reviewed Next.js advisories affecting 16.3.8 (one critical
+production package entry, three underlying advisories). Updated Next and matching
+eslint configuration to exact 16.4.2 after reading version-matched upgrade guidance;
+Node 24, React 19.2.8 and already-patched sharp 0.35.5 remain compatible/unchanged.
+The generated lockfile has no override, forced downgrade or dependency suppression.
+
+Frontend production audit returns zero; full audit still reports five high
+development entries from the unchanged braces advisory. The official advisory
+still lists no patch and npm still publishes braces 3.0.3; the forced eslint
+14.2.35 downgrade remains rejected. SDK full audit returns zero. Added a browser-CI
+production audit gate so later runtime advisories fail validation. Runtime tracing
+still excludes build/lint tooling and actual image checks remain required.
+
+Frontend's 30 tests, lint, standalone production build and 68-package runtime
+inventory pass. Scoped package/lock review found no blocking defect: tooling is
+still development-only, framework/tooling versions align and peers are compatible.
+Rebuilt all three fixture images and passed encrypted exact retrieval/recovery-key
+import, cross-user isolation, queued registration, two persistent restarts and
+stable transaction/nonce checks. Actual image inspection excludes package managers
+and the 68-package traced inventory excludes developer tooling. The bounded fixture
+removed only its operation-owned containers/volumes/network. No existing hosted
+image or service is presumed updated. Dependency investigation
+uses published package/advisory data, not private custody or public-chain access.
+See [exposure details and advisory links](docs/dependency-exposure.md).
+
 ### Read-only administrative recovery inspection — 2026-10-18
 
 `tank-access users` and `keys` now reuse the existing SQL read-only schema-8 opener,

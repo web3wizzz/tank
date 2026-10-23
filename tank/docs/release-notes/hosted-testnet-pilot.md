@@ -7,6 +7,10 @@ runs on local owned processes; no independently hosted pilot is claimed.
 
 ## Available
 
+- Next and its lint configuration are pinned to 16.4.2 for the October runtime
+  advisories. Production dependency audits now gate browser CI; unresolved braces
+  tooling findings remain [documented](../dependency-exposure.md). Existing images
+  need rebuilding; no hosted rollout is implied.
 - Browser-side encryption and filename protection, recovery-key export/import,
   integrity-checked retrieval, user isolation, and a responsive workspace.
 - [Opt-in CLI/SDK encryption](../sdk-encryption.md) with the browser-compatible
