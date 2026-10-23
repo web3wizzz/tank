@@ -15,5 +15,6 @@ anvil_version="$("$TANK_ARC_ANVIL_BIN" --version)"
   echo 'Unexpected Arc Anvil version.' >&2
   exit 1
 }
-(cd contracts; "$TANK_ARC_FORGE_BIN" fmt --check; "$TANK_ARC_FORGE_BIN" test --network arc)
+# vm.setEnv in deployment fixtures is process-wide, even across isolated EVMs.
+(cd contracts; "$TANK_ARC_FORGE_BIN" fmt --check; "$TANK_ARC_FORGE_BIN" test --threads 1 --network arc)
 go test -race -tags arc_integration -run TestArcLocal -count=1 -timeout=2m ./internal/registry

@@ -10,6 +10,8 @@ interface PreparationVM {
     function expectRevert(bytes4 selector) external;
 }
 
+// Run with `forge test --threads 1`: vm.setEnv mutates the shared process
+// environment, which is not isolated by each test's EVM snapshot.
 contract DeployArcTestnetTest {
     PreparationVM private constant vm = PreparationVM(address(uint160(uint256(keccak256("hevm cheat code")))));
 

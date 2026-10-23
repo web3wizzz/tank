@@ -1,5 +1,18 @@
 # Tank Phase 1 development status
 
+### Serialize process-environment deployment fixtures — 2026-10-23
+
+Dependency update `5c4204f` passed Go, browser (including the new production
+audit), SDK and container CI. Contract CI exposed a pre-existing test race:
+parallel deployment tests overwrite the same `vm.setEnv` sender variable.
+The exact pinned Foundry 1.8.4 reproduced the zero-sender failure on the second
+bounded parallel trial. Set the default contract test thread count to one and
+make it explicit in both standard and isolated Arc CI commands. All sender,
+network and registry assertions remain intact; production deployment code is
+unchanged. Offline full tests pass (12 tests, including 256 fuzz cases), as do
+30 consecutive serialized deployment-suite trials, formatting and shell syntax.
+No RPC, wallet or deployed contract was used for this reproduction.
+
 ### Compatible production dependency security update — 2026-10-23
 
 Inspection reused clean `6c93409`, no open PRs and five passing workflows. A fresh

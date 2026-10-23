@@ -8,6 +8,8 @@ solc_version = "0.8.28"
 evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
+# vm.setEnv is process-wide; deployment fixtures must not race each other.
+threads = 1
 
 [profile.default.fuzz]
 runs = 256

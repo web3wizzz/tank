@@ -34,7 +34,8 @@ jobs:
       - name: Build registry
         run: forge build
       - name: Test registry and fuzz invariants
-        run: forge test
+        # Deployment fixtures mutate process-wide environment via vm.setEnv.
+        run: forge test --threads 1
 
   arc-local:
     runs-on: ubuntu-latest
